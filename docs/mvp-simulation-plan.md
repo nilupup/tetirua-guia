@@ -51,11 +51,19 @@ Uma combinação de STT e TTS pode ser considerada pronta para a próxima etapa 
 
 Também devem ser registrados o modelo utilizado, o dispositivo, o idioma, o tempo de transcrição, o tempo até o início do áudio, a memória aproximada, o tamanho dos modelos e os erros observados. Os resultados devem ficar documentados na branch da alternativa analisada.
 
-## Ordem recomendada
+## Ordem de validação
 
-A primeira prova funcional deve usar `feat/stt-whisper-cpp-tflite` ou `feat/stt-moonshine` para STT e `feat/tts-native` para TTS. O Android TTS reduz o risco da primeira demonstração, enquanto o STT deve ser escolhido após validar o português brasileiro.
+A ordem de execução é apenas uma forma de organizar os testes e não representa uma decisão de MVP. Cada branch deve ser testada de maneira independente:
 
-Depois que o ciclo de voz estiver estável, a branch de TTS Kokoro pode ser usada para comparar qualidade neural no PC. A integração Piper + sherpa-onnx deve ser avaliada quando o projeto precisar executar TTS neural diretamente no celular.
+| Ordem de teste | Branches | Foco |
+|---|---|---|
+| 1 | `feat/stt-moonshine` e `feat/stt-whisper-cpp-tflite` | Comparar as alternativas de STT, incluindo `tiny/base`, idioma, latência e memória. |
+| 2 | `feat/tts-native` | Validar Android TTS e AVSpeechSynthesizer como integrações nativas. |
+| 3 | `feat/tts-kokoro-82m` | Comparar qualidade e vozes brasileiras no ambiente disponível. |
+| 4 | `feat/tts-piper-sherpa-onnx` | Avaliar execução neural local e possibilidade de integração móvel. |
+| 5 | Todas as combinações aprovadas | Rodar o ciclo de conversa com as alternativas que a equipe desejar comparar. |
+
+Uma primeira simulação pode usar qualquer combinação que esteja disponível no ambiente de teste. Essa escolha serve apenas para validar o encadeamento entre os módulos; não elimina nem prioriza definitivamente as demais alternativas.
 
 ## Fluxo final esperado
 

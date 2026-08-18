@@ -19,11 +19,11 @@ O Tetiruã é uma aplicação de visão computacional para óculos inteligentes.
 
 A primeira base de áudio usa interfaces independentes de modelo. O módulo `stt` possui um adaptador para o executável local `whisper-cli` do whisper.cpp e um adaptador opcional de microfone para Moonshine. O módulo `tts` possui um adaptador opcional para Kokoro-82M, configurado por padrão para português brasileiro.
 
-O catálogo oficial consultado do Moonshine não lista português brasileiro entre os modelos disponíveis. Por esse motivo, Moonshine está disponível como adaptador experimental de streaming, enquanto o STT principal em português deverá ser validado com um modelo multilíngue do Whisper ou com uma alternativa compatível com sherpa-onnx.
+As alternativas de STT e TTS não estão sendo classificadas como vencedoras neste momento. Moonshine, whisper.cpp/TFLite, Android TTS/AVSpeechSynthesizer, Kokoro-82M e Piper+sherpa-onnx devem permanecer disponíveis para testes futuros. A ausência de português brasileiro no catálogo atual consultado do Moonshine é uma restrição a ser registrada no benchmark, não uma decisão antecipada de descarte.
 
-Para a integração Android, sherpa-onnx e Android TTS permanecem como próximos caminhos de implementação. A arquitetura foi feita para permitir a substituição do motor sem alterar o orquestrador.
+A arquitetura foi feita para permitir a substituição do motor sem alterar o orquestrador. A equipe de áudio será responsável por manter os adaptadores e os critérios de comparação; as equipes de LLM, VLM, GPS e web search integrarão seus componentes por meio de contratos de entrada e saída.
 
-Consulte [`docs/audio-architecture.md`](docs/audio-architecture.md) para conhecer as decisões, referências e próximos passos. Consulte também [`docs/branch-strategy.md`](docs/branch-strategy.md) para entender a divisão por modelo, o escopo do MVP e o fluxo de branches.
+Consulte [`docs/audio-architecture.md`](docs/audio-architecture.md) para conhecer as decisões e referências. Consulte [`docs/scope-and-ownership.md`](docs/scope-and-ownership.md) para entender as responsabilidades entre equipes, [`docs/branch-strategy.md`](docs/branch-strategy.md) para a divisão por modelo e [`docs/mvp-simulation-plan.md`](docs/mvp-simulation-plan.md) para o roteiro de validação.
 
 ## Instalação
 

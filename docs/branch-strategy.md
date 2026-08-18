@@ -34,7 +34,7 @@ Essa branch é o candidato mais seguro para validar português brasileiro porque
 
 ### `feat/tts-native`
 
-A branch deve começar com Android TTS, pois o planejamento do MVP prevê resposta falada no celular Android e essa opção reduz o risco de integração. O AVSpeechSynthesizer será mantido como variante de compatibilidade para iOS, sem misturar código específico de Apple ao primeiro protótipo Android.
+A branch deve começar com Android TTS como uma das alternativas de referência para o celular Android. O AVSpeechSynthesizer será mantido como variante de compatibilidade para iOS. As duas implementações devem permanecer disponíveis para comparação entre plataformas, sem transformar uma delas em decisão definitiva do projeto.
 
 O objetivo desta branch é provar o fluxo ponta a ponta: texto recebido do orquestrador, síntese local e reprodução no telefone. Qualidade de voz neural não é o foco inicial desta branch.
 
@@ -50,17 +50,17 @@ A branch deve avaliar o conjunto Piper + sherpa-onnx como caminho de execução 
 
 Essa branch é a mais próxima de uma arquitetura neural totalmente local no celular, mas possui maior complexidade de empacotamento, seleção de modelo e validação de voz em português. Por isso, não deve bloquear a primeira demonstração funcional do projeto.
 
-## Classificação do MVP
+## Uso em testes e integrações futuras
 
-O PDF indica **Moonshine + Android TTS** como combinação inicial. A análise técnica acrescenta que Moonshine não lista português brasileiro no catálogo atual consultado. Assim, o escopo fica organizado em três níveis:
+O PDF apresenta Moonshine + Android TTS como uma possibilidade de combinação inicial, mas isso não transforma essa combinação em decisão final. Moonshine, whisper.cpp/TFLite, Android TTS/AVSpeechSynthesizer, Kokoro-82M e Piper+sherpa-onnx devem ser implementados ou avaliados de forma independente.
 
-| Nível | STT | TTS | Objetivo |
-|---|---|---|---|
-| MVP original | `feat/stt-moonshine` | `feat/tts-native` | Reproduzir a arquitetura prevista no planejamento e validar o fluxo local. |
-| MVP de segurança linguística | `feat/stt-whisper-cpp-tflite` | `feat/tts-native` | Garantir uma alternativa de STT mais segura para português brasileiro. |
-| Evolução neural local | `feat/stt-whisper-cpp-tflite` ou Moonshine validado | `feat/tts-kokoro-82m` ou `feat/tts-piper-sherpa-onnx` | Comparar qualidade e preparar execução neural no dispositivo. |
+| Grupo de avaliação | Alternativas | Objetivo |
+|---|---|---|
+| STT local | `feat/stt-moonshine` e `feat/stt-whisper-cpp-tflite` | Comparar modelos, runtimes, idiomas, latência, memória e qualidade de transcrição. |
+| TTS nativo | `feat/tts-native` | Comparar as APIs nativas de Android e iOS e validar a comunicação com o celular. |
+| TTS neural | `feat/tts-kokoro-82m` e `feat/tts-piper-sherpa-onnx` | Comparar qualidade, execução local, portabilidade e possibilidade de uso móvel. |
 
-A decisão final do MVP será baseada em testes, e não apenas no nome do modelo. Cada branch deve produzir um relatório comparável contendo, no mínimo, idioma, modelo, tamanho, memória, latência, qualidade percebida e limitações.
+O MVP do produto completo é apenas um cenário possível de integração. Cada branch deve produzir um relatório comparável contendo, no mínimo, idioma, modelo, tamanho, memória, latência, qualidade percebida, limitações e plataforma testada. A escolha de uma combinação para uma demonstração ou release será feita depois dos testes.
 
 ## Fluxo de trabalho
 
@@ -76,13 +76,13 @@ git commit -m "feat: evaluate moonshine stt"
 git push -u origin feat/stt-moonshine
 ```
 
-Na prática, cada uma das cinco branches será trabalhada separadamente. O commit deve ser feito dentro da branch da solução, nunca diretamente na `main`. Depois do envio, a branch pode ser comparada e revisada por pull request. O merge só ocorre quando a equipe decidir que aquela solução é a escolhida para o MVP.
+Na prática, cada uma das cinco branches será trabalhada separadamente. O commit deve ser feito dentro da branch da solução, nunca diretamente na `main`. Depois do envio, a branch pode ser comparada e revisada por pull request. O merge só ocorre quando a equipe decidir que aquela implementação deve entrar em uma integração, demonstração ou release específica; as demais branches continuam disponíveis para testes futuros.
 
 Modelos, binários, arquivos de áudio pessoais, caches e tokens não devem ser enviados ao GitHub. O `.gitignore` do projeto já contém regras para esses artefatos.
 
 ## Estado atual da cópia local
 
-As cinco branches foram criadas localmente a partir da branch de fundação:
+As cinco branches foram criadas localmente a partir da branch de fundação e também foram abertas no GitHub para receber implementações independentes:
 
 - `feat/stt-moonshine`
 - `feat/stt-whisper-cpp-tflite`
@@ -90,7 +90,7 @@ As cinco branches foram criadas localmente a partir da branch de fundação:
 - `feat/tts-kokoro-82m`
 - `feat/tts-piper-sherpa-onnx`
 
-A branch `main` local continua apontando para o estado original do repositório. As branches remotas só devem ser criadas depois que a autenticação de publicação estiver funcionando.
+A branch `main` local continua apontando para o estado original do repositório. As cinco branches remotas já foram criadas no GitHub a partir da `main`; os commits com a base local de áudio ainda aguardam publicação.
 
 ## Referências
 

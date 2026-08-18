@@ -44,15 +44,15 @@ A alternativa de TTS deve ser avaliada com respostas curtas e médias semelhante
 
 Para o MVP, Android TTS pode ser aprovado como fallback mesmo que uma voz neural seja mais natural. O objetivo inicial é comprovar que o usuário recebe uma resposta falada de maneira confiável.
 
-## Critérios para escolher o MVP
+## Critérios para comparar as alternativas
 
-A combinação escolhida para o MVP deve ser aquela que completa o fluxo com menor risco:
+A combinação de STT e TTS usada em uma primeira simulação é apenas uma configuração de teste. Ela não elimina as outras branches e não define sozinha o MVP do produto completo:
 
 ```text
 microfone -> STT -> texto da pergunta -> orquestrador -> resposta textual -> TTS -> áudio
 ```
 
-A escolha deve considerar a seguinte ordem: funcionamento no dispositivo-alvo, suporte ao português brasileiro, latência, consumo de recursos, qualidade e facilidade de manutenção. Uma solução ligeiramente menos natural, mas estável e disponível offline, pode ser preferível na primeira demonstração.
+Todas as alternativas devem ser comparadas por funcionamento no dispositivo-alvo, suporte ao português brasileiro, latência, consumo de recursos, qualidade, privacidade, disponibilidade offline e facilidade de manutenção. Depois dos testes, a equipe do produto poderá escolher uma configuração para uma demonstração, uma versão do MVP ou uma etapa posterior.
 
 ## O que não deve ser feito
 
@@ -60,7 +60,7 @@ Não se deve comparar modelos misturando alterações de várias branches. Não 
 
 ## Estado atual desta etapa
 
-As cinco branches remotas foram criadas a partir da `main`, mas ainda não possuem implementação específica de modelo. A base inicial de contratos e adaptadores está na cópia local da branch `feat/audio-initial-adapters`. A próxima ação de desenvolvimento será escolher uma das cinco branches, levar para ela somente o código correspondente ao modelo e registrar os resultados da avaliação.
+As cinco branches remotas foram criadas a partir da `main`, mas ainda não possuem implementação específica de modelo. A base inicial de contratos e adaptadores está na cópia local da branch `feat/audio-initial-adapters`. A próxima ação de desenvolvimento será trabalhar em cada uma das cinco branches, levando para ela somente o código correspondente ao modelo e registrando os resultados da avaliação. Nenhuma alternativa será descartada antes da comparação.
 
 ## Fluxo recomendado para o colaborador
 
