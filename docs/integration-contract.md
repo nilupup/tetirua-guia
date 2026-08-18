@@ -425,3 +425,171 @@ Cada implementação deve declarar a versão do contrato que suporta e executar 
 O áudio bruto deve permanecer local por padrão. O orquestrador deve receber texto e metadados, não o arquivo de áudio, salvo quando houver uma necessidade explícita de auditoria ou reprocessamento. Caminhos locais não devem ser enviados a serviços remotos como se fossem URLs públicas. Tokens, modelos grandes, áudios pessoais e dados de localização sensíveis não devem ser versionados no GitHub.
 
 A versão inicial do contrato é `1.0`. Alterações compatíveis podem adicionar campos opcionais. Alterações que mudem significado, removam campos ou alterem estados devem criar uma nova versão e ser discutidas entre as equipes.
+
+
+## 18. Wake word e VAD
+
+A interação por voz do Tetiruã terá uma etapa de ativação antes do STT completo. A arquitetura de referência é:
+
+```text
+microfone em escuta de baixa potência
+        ↓
+wake word detecta “Tetiruã”
+        ↓
+VAD detecta início e fim da fala relevante
+        ↓
+STT completo transcreve a pergunta
+        ↓
+orquestrador chama VLM, GPS, web search e LLM
+        ↓
+TTS sintetiza a resposta
+```
+
+A **wake word** responde se o usuário chamou o sistema. O **VAD** responde se há fala e delimita o trecho relevante. O **STT** responde quais palavras foram pronunciadas. São responsabilidades diferentes e os três componentes devem ser substituíveis independentemente.
+
+O detector de wake word permanece em um modo leve de escuta. Ele não deve transmitir continuamente o áudio bruto para o orquestrador, para o LLM ou para serviços remotos. Quando a palavra de ativação for detectada, a aplicação abre uma janela de interação e passa o controle para o VAD.
+
+### 18.1 Evento de detecção da wake word
+
+```json
+{
+  "schema_version": "1.0",
+  "event_id": "evt_wake_0007",
+  "event_type": "wake_word.detected",
+  "timestamp": "2026-08-18T23:30:00Z",
+  "session_id": "sess_01HXYZ",
+  "turn_id": "turn_0007",
+  "source": "wake_word",
+  "payload": {
+    "keyword": "tetirua",
+    "score": null,
+    "engine": "wake-word-engine",
+    "model": "keyword-model",
+    "audio_kept": false
+  }
+}
+```
+
+O campo `score` deve ser `null` quando o detector não fornecer uma probabilidade calibrada. Não se deve tratar uma pontuação arbitrária como certeza. O campo `audio_kept` indica se algum trecho anterior à ativação foi preservado; o padrão deve ser `false`.
+
+### 18.2 Eventos do VAD
+
+```json
+{
+  "schema_version": "1.0",
+  "event_id": "evt_vad_0008",
+  "event_type": "vad.speech.started",
+  "timestamp": "2026-08-18T23:30:01Z",
+  "session_id": "sess_01HXYZ",
+  "turn_id": "turn_0007",
+  "source": "vad",
+  "payload": {
+    "engine": "vad-engine",
+    "offset_ms": 420,
+    "audio_buffer": "local://turn_0007"
+  }
+}
+```
+
+Quando o silêncio indicar o fim da pergunta, o VAD emite:
+
+```json
+{
+  "schema_version": "1.0",
+  "event_id": "evt_vad_0009",
+  "event_type": "vad.speech.stopped",
+  "timestamp": "2026-08-18T23:30:03Z",
+  "session_id": "sess_01HXYZ",
+  "turn_id": "turn_0007",
+  "source": "vad",
+  "payload": {
+    "engine": "vad-engine",
+    "speech_duration_ms": 2100,
+    "silence_duration_ms": 650,
+    "audio_uri": "local://turn_0007.wav"
+  }
+}
+```
+
+Depois de `vad.speech.stopped`, a aplicação encerra a captura, finaliza o STT e aguarda `stt.final`. O VAD não interpreta o conteúdo da fala e não substitui o STT.
+
+### 18.3 Estados da escuta contínua
+
+Além dos estados do turno, a aplicação possui estados de escuta:
+
+```text
+LOW_POWER_LISTENING
+        ↓ wake word.detected
+WAKE_WORD_CONFIRMED
+        ↓
+WAITING_FOR_SPEECH
+        ↓ vad.speech.started
+CAPTURING_SPEECH
+        ↓ vad.speech.stopped
+FINALIZING_STT
+        ↓ stt.final
+HANDOFF_TO_ORCHESTRATOR
+```
+
+O sistema retorna a `LOW_POWER_LISTENING` depois de concluir, cancelar ou expirar a interação. Se nenhuma fala for detectada após a wake word dentro do timeout definido, o estado volta a `LOW_POWER_LISTENING` sem chamar o LLM.
+
+### 18.4 Regras de ativação
+
+A detecção da wake word não deve iniciar automaticamente uma busca ou uma resposta. Ela apenas autoriza a captura da pergunta. O VAD precisa encontrar fala dentro da janela de ativação; caso contrário, a interação é encerrada como `NO_SPEECH_AFTER_WAKE_WORD`.
+
+Uma pergunta só pode ser enviada ao orquestrador quando existir `stt.final`. Isso evita que ruídos, falsos acionamentos ou fragmentos parciais gerem consultas ao VLM, web search ou LLM.
+
+Os parâmetros de timeout, duração mínima de fala, duração máxima de fala e tolerância de silêncio devem ser configurações do aplicativo, não regras codificadas dentro de um modelo específico:
+
+```text
+WAKE_WORD=teriruã
+WAKE_WORD_THRESHOLD=<calibrar>
+WAIT_FOR_SPEECH_TIMEOUT_MS=<calibrar>
+VAD_SILENCE_TIMEOUT_MS=<calibrar>
+MAX_SPEECH_DURATION_MS=<calibrar>
+```
+
+A grafia da configuração deve ser validada com o modelo escolhido. O nome falado pelo usuário pode conter acentos, mas o identificador interno pode usar uma forma normalizada.
+
+### 18.5 Métricas adicionais
+
+Além das métricas de STT/TTS, cada teste da cascata deve registrar:
+
+| Métrica | Significado |
+|---|---|
+| `wake_to_speech_ms` | Tempo entre a detecção da wake word e o início da fala. |
+| `speech_duration_ms` | Duração efetiva da pergunta. |
+| `speech_to_final_ms` | Tempo entre o fim da fala e o `stt.final`. |
+| `false_activation_rate` | Frequência de ativações sem intenção do usuário. |
+| `miss_rate` | Frequência em que a wake word não foi detectada. |
+| `no_speech_after_wake_rate` | Frequência de ativação sem pergunta posterior. |
+| `low_power_cpu_usage` | Uso do dispositivo enquanto apenas a escuta leve está ativa. |
+| `interaction_energy_estimate` | Custo aproximado de uma interação completa. |
+
+A comparação entre Moonshine, whisper.cpp/TFLite e as alternativas futuras de áudio deve separar o custo da escuta leve do custo do STT completo. Uma alternativa pode ter ótima transcrição, mas ser inadequada para escuta contínua se consumir recursos demais antes da ativação.
+
+### 18.6 Privacidade
+
+O áudio anterior à wake word deve ser processado localmente e descartado por padrão. Após a ativação, o áudio da pergunta pode ser mantido apenas durante o tempo necessário para o STT e deve ser removido conforme a política do aplicativo. O orquestrador deve receber o texto final, não um fluxo de microfone permanente.
+
+A aplicação deve informar quando o microfone está em modo de escuta, permitir desativar a wake word e registrar claramente quando uma interação foi ativada. Logs de benchmark podem preservar métricas e textos de teste, mas não devem armazenar conversas pessoais ou localização real sem autorização.
+
+### 18.7 Compatibilidade com as branches
+
+Wake word e VAD são camadas comuns à avaliação dos cinco blocos de STT/TTS. As branches de STT recebem o áudio delimitado pelo VAD e produzem o mesmo `TranscriptionResult`. As branches de TTS continuam recebendo somente o texto final produzido pelo LLM.
+
+```text
+wake word / VAD comuns
+        ↓
+[Moonshine | whisper.cpp/TFLite]
+        ↓
+TranscriptionResult comum
+        ↓
+LLM/VLM/GPS/web search
+        ↓
+[Android TTS | AVSpeechSynthesizer | Kokoro | Piper+sherpa-onnx]
+        ↓
+SynthesisResult comum
+```
+
+A primeira implementação pode usar dados simulados para wake word e VAD, desde que os eventos e estados já respeitem este contrato. Depois, o motor escolhido para wake word e o VAD real podem substituir os simuladores sem alterar o orquestrador.

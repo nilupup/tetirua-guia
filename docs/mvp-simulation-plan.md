@@ -90,3 +90,29 @@ Resposta textual com fontes
 ```
 
 A simulação deve ser construída de maneira incremental. Primeiro provamos voz para voz; depois adicionamos contexto; por fim substituímos os componentes simulados pelos componentes reais do pipeline do Tetiruã.
+
+
+## Wake word e VAD na simulação
+
+A simulação de voz deve incluir a ativação por wake word antes do STT completo. O objetivo é validar o ciclo realista de escuta sem enviar todo o áudio ao modelo pesado:
+
+```text
+escuta leve -> wake word -> VAD -> STT -> orquestrador simulado -> TTS -> reprodução
+```
+
+A primeira versão pode usar uma wake word e um VAD simulados por comandos de teste ou arquivos de áudio anotados. Isso permite validar o contrato antes de escolher o motor definitivo de keyword spotting. O comportamento esperado é:
+
+| Etapa | Entrada | Saída esperada |
+|---|---|---|
+| Escuta leve | Áudio contínuo local | Nenhum envio ao orquestrador. |
+| Wake word | Trecho contendo “Tetiruã” | `wake_word.detected`. |
+| Espera por fala | Janela após ativação | `vad.speech.started` ou timeout. |
+| Captura | Pergunta falada | Buffer local delimitado pelo VAD. |
+| Fim da fala | Silêncio suficiente | `vad.speech.stopped`. |
+| STT | Buffer delimitado | `stt.final`. |
+| Orquestração | Texto + contexto simulado | Resposta textual. |
+| TTS | Texto falado | Áudio e `tts.completed`. |
+
+A bateria de testes deve incluir ativação correta, áudio sem wake word, wake word seguida de silêncio, ruído de rua, duas perguntas consecutivas, interrupção durante a reprodução e cancelamento pelo usuário. Para cada caso, registrar falsos acionamentos, falhas de detecção, tempo entre wake word e fala, tempo entre fim da fala e `stt.final`, tempo até o primeiro áudio e retorno ao modo `LOW_POWER_LISTENING`.
+
+O objetivo desta etapa não é escolher o menor custo. É verificar se a cascata mantém todas as alternativas de STT e TTS intercambiáveis e se o orquestrador consegue funcionar com qualquer combinação aprovada nas branches correspondentes.
