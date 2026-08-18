@@ -45,3 +45,13 @@ dist/
 .DS_Store
 .idea/
 .vscode/
+
+# Android local
+android/.gradle/
+android/build/
+android/app/build/
+android/local.properties
+android/local-models/
+android/local-native-libs/
+android/.idea/
+android/*.iml

@@ -104,6 +104,14 @@ finally:
     stt.stop()
 ```
 
+## Módulo Android/Kotlin
+
+O diretório [`android/`](android/) contém a base Android em Kotlin para o fluxo de áudio no celular. A Activity inicial já demonstra uma interação local com wake word e VAD simulados, STT simulado e **Android TextToSpeech** real. Essa demonstração valida o contrato e a reprodução no dispositivo sem escolher ainda um motor definitivo.
+
+Os adaptadores nomeados para `Moonshine`, `whisper.cpp/TFLite`, `Kokoro-82M` e `Piper+sherpa-onnx` estão atrás de portas de runtime. A integração concreta de cada runtime será desenvolvida na branch correspondente. Para `sherpa-onnx`, a documentação oficial fornece APIs Kotlin para STT, TTS, VAD e keyword spotting, mas as bibliotecas JNI e os pesos de modelos devem ser baixados/compilados por ABI e não enviados automaticamente ao Git.
+
+Abra `/android` no Android Studio, sincronize o Gradle e execute o aplicativo em um dispositivo ou emulador. Consulte [`android/README.md`](android/README.md), [`android/models/README.md`](android/models/README.md) e [`android/integration/engines.md`](android/integration/engines.md) para a matriz completa de modelos e a estratégia de empacotamento.
+
 ## Testes
 
 Os testes unitários não baixam modelos e não exigem microfone:
