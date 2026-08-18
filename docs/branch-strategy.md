@@ -2,75 +2,99 @@
 
 ## Princípio de organização
 
-As pastas `stt/` e `tts/` organizam o código por responsabilidade. As **branches** organizam experimentos e implementações independentes. Portanto, não devemos criar uma branch para cada pasta; devemos criar uma branch para cada motor ou modelo que será implementado e avaliado.
+As pastas `stt/` e `tts/` organizam o código por responsabilidade. As **branches** organizam implementações ou experimentos independentes. Portanto, os modelos `tiny` e `base`, assim como Android e iOS, serão inicialmente tratados como variantes dentro de uma mesma branch quando pertencem ao mesmo bloco do diagrama.
 
-A branch `main` é a referência estável do projeto. Nenhum teste de modelo deve ser desenvolvido diretamente nela. Cada alternativa começa em uma branch própria, recebe sua implementação e seus testes, e só pode ser incorporada à `main` depois de revisão e comparação com as outras alternativas.
+A branch `main` é a referência estável do projeto. Nenhum experimento de modelo deve ser desenvolvido diretamente nela. Cada solução começa em uma branch própria, recebe sua implementação e seus testes, e só pode ser incorporada à `main` depois de revisão e comparação.
 
-## Estado atual
+## Cinco branches principais
 
-A implementação inicial está no commit local `3968308`, na branch `feat/audio-initial-adapters`. A branch `main` local continua apontando para o commit `a6b028f`, que é o estado original do repositório remoto. O envio da branch de implementação ao GitHub ainda não foi concluído porque a autenticação usada pelo ambiente foi recusada pelo GitHub para o proprietário do repositório.
-
-## Matriz de STT
-
-| Branch sugerida | Referência do planejamento | Papel | Classificação | Observação |
-|---|---|---|---|---|
-| `feat/stt-moonshine` | Moonshine tiny/base v2 | Streaming local com baixa latência. | MVP planejado | A documentação atual consultada não lista português brasileiro; deve ser validado antes de ser o STT final do MVP. |
-| `feat/stt-whisper-cpp-tiny` | whisper.cpp tiny | Baseline de baixo consumo. | MVP de validação | Adequado para medir latência e memória em celular/PC; a precisão em português precisa ser medida. |
-| `feat/stt-whisper-cpp-base` | whisper.cpp base | Candidato de maior qualidade que tiny. | MVP recomendado para comparação | O modelo multilíngue é o caminho mais seguro para validar perguntas em português brasileiro. |
-| `feat/stt-whisper-tflite-tiny` | whisper.cpp/TFLite tiny | Variante voltada a runtime móvel TFLite. | Etapa posterior | Requer confirmar o modelo, o runtime e a integração Android antes de codificar. |
-| `feat/stt-whisper-tflite-base` | whisper.cpp/TFLite base | Variante móvel com maior capacidade. | Etapa posterior | Deve ser comparada com whisper.cpp nativo e sherpa-onnx em tamanho, latência e precisão. |
-
-A escolha prática para o primeiro benchmark deve comparar `feat/stt-moonshine`, `feat/stt-whisper-cpp-tiny` e `feat/stt-whisper-cpp-base`. A decisão não deve ser feita apenas pelo tamanho do modelo: é necessário medir transcrição em português, latência, memória, consumo de bateria e comportamento com ruído do microfone dos óculos.
-
-## Matriz de TTS
-
-| Branch sugerida | Referência do planejamento | Papel | Classificação | Observação |
-|---|---|---|---|---|
-| `feat/tts-android-tts` | Android TTS | Fallback simples e integrado ao celular Android. | MVP | É o caminho mais rápido para obter resposta falada no aparelho. |
-| `feat/tts-avspeech-synthesizer` | AVSpeechSynthesizer | Fallback equivalente para dispositivos Apple. | Etapa posterior | Só é necessário se o MVP também precisar suportar iOS. |
-| `feat/tts-kokoro-82m` | Kokoro-82M | Voz neural local com suporte documentado a português brasileiro. | MVP de protótipo / comparação | A biblioteca Python lista `lang_code='p'` e vozes brasileiras; a integração Android exige uma etapa própria. |
-| `feat/tts-piper-sherpa-onnx` | Piper + sherpa-onnx | TTS local empacotável para Android e outras plataformas. | MVP avançado / etapa posterior | Deve ser priorizado quando a resposta neural precisar rodar diretamente no celular. |
-
-Para o MVP funcional, `feat/tts-android-tts` deve ser a primeira implementação, porque reduz o risco de integração. Em paralelo, `feat/tts-kokoro-82m` serve para validar qualidade da voz em português no PC. A branch `feat/tts-piper-sherpa-onnx` será o caminho de evolução para uma voz neural local no Android.
-
-## Relação com o MVP do planejamento
-
-O PDF define como MVP original o conjunto **Moonshine + Android TTS**, com Qwen3-VL no PC e DeepSeek V4-Flash na API. A análise das documentações adiciona uma restrição importante: a lista atual de modelos do Moonshine não inclui português brasileiro. Por isso, o MVP deve manter Moonshine como branch obrigatória de validação, mas incluir `whisper.cpp base` como candidato de segurança para o idioma do usuário.
-
-A separação recomendada fica assim:
-
-| Grupo | STT | TTS | Objetivo |
+| Branch | Bloco do diagrama | Escopo | Classificação inicial |
 |---|---|---|---|
-| MVP planejado | Moonshine | Android TTS | Reproduzir a arquitetura descrita no PDF. |
-| MVP de segurança linguística | whisper.cpp base | Android TTS | Validar português brasileiro com menor risco de cobertura de idioma. |
-| Protótipo de qualidade | whisper.cpp base ou tiny | Kokoro-82M | Avaliar qualidade local de voz e transcrição fora do celular. |
-| Evolução móvel | sherpa-onnx com modelo ASR/TTS compatível | Piper via sherpa-onnx ou Kokoro convertido | Reduzir dependência de serviços externos e aproximar a execução final no Android. |
-| Compatibilidade futura | TFLite e AVSpeechSynthesizer | AVSpeechSynthesizer | Atender outras plataformas ou runtimes. |
+| `feat/stt-moonshine` | Moonshine tiny/base v2 | Avaliar as variantes `tiny` e `base` do Moonshine, com foco em captura e transcrição local. | MVP planejado, condicionado à validação do português brasileiro |
+| `feat/stt-whisper-cpp-tflite` | whisper.cpp / TFLite tiny/base | Comparar `tiny` e `base` e decidir entre a integração whisper.cpp e o runtime TFLite. | MVP de segurança linguística e benchmark |
+| `feat/tts-native` | Android TTS / AVSpeechSynthesizer | Avaliar a síntese nativa da plataforma, começando por Android TTS e mantendo AVSpeechSynthesizer como variante iOS. | MVP funcional |
+| `feat/tts-kokoro-82m` | Kokoro-82M | Avaliar vozes e geração neural local, incluindo as vozes brasileiras documentadas. | Protótipo de qualidade e possível MVP avançado |
+| `feat/tts-piper-sherpa-onnx` | Piper + sherpa-onnx | Avaliar síntese local empacotável para Android, com modelos e runtime ONNX. | Etapa posterior ou MVP avançado |
+
+Essa estrutura contém **cinco branches de solução**, exatamente correspondentes aos cinco blocos relevantes da imagem de modelos. A branch `feat/audio-initial-adapters` é uma branch de fundação técnica: contém contratos e adaptadores genéricos, mas não é uma das cinco soluções finais.
+
+## O que será analisado dentro de cada branch
+
+### `feat/stt-moonshine`
+
+A branch deve testar Moonshine em fluxo de arquivo e, quando possível, em streaming pelo microfone. As variantes `tiny` e `base` ficam como configurações ou parâmetros de benchmark. Devem ser avaliados latência, consumo de memória, estabilidade do streaming e qualidade de transcrição em português brasileiro.
+
+A documentação oficial consultada do Moonshine lista modelos para inglês, árabe, japonês, coreano, mandarim, espanhol, ucraniano e vietnamita, mas não lista português brasileiro. Assim, a branch é importante para validar a proposta original do PDF, mas não deve ser considerada automaticamente a solução final do idioma do projeto.[1]
+
+### `feat/stt-whisper-cpp-tflite`
+
+A branch deve comparar as variantes `tiny` e `base` e registrar qual runtime é utilizado em cada teste. O whisper.cpp será a referência principal para execução local e integração C/C++/Android; a alternativa TFLite só deve ser implementada quando o modelo e o runtime forem confirmados.
+
+Essa branch é o candidato mais seguro para validar português brasileiro porque o Whisper possui modelos multilíngues e o whisper.cpp oferece exemplos oficiais para Android. O benchmark deve registrar tamanho do modelo, memória, latência, taxa de erro e comportamento com ruído.[2]
+
+### `feat/tts-native`
+
+A branch deve começar com Android TTS, pois o planejamento do MVP prevê resposta falada no celular Android e essa opção reduz o risco de integração. O AVSpeechSynthesizer será mantido como variante de compatibilidade para iOS, sem misturar código específico de Apple ao primeiro protótipo Android.
+
+O objetivo desta branch é provar o fluxo ponta a ponta: texto recebido do orquestrador, síntese local e reprodução no telefone. Qualidade de voz neural não é o foco inicial desta branch.
+
+### `feat/tts-kokoro-82m`
+
+A branch deve testar o Kokoro-82M no PC, inicialmente com `lang_code='p'` e as vozes brasileiras `pf_dora`, `pm_alex` e `pm_santa`. O teste deve comparar clareza, naturalidade, velocidade e tamanho do áudio produzido.[3]
+
+O Kokoro é adequado para uma prova de qualidade em português, mas sua integração Android não deve ser presumida. Depois do benchmark no PC, será necessário decidir se o modelo será convertido ou executado por uma camada móvel compatível.
+
+### `feat/tts-piper-sherpa-onnx`
+
+A branch deve avaliar o conjunto Piper + sherpa-onnx como caminho de execução local no celular. O sherpa-onnx oferece APIs e exemplos para Android, Kotlin, Java e Flutter, mas a licença do framework não substitui a verificação da licença de cada voz/modelo selecionado.[4]
+
+Essa branch é a mais próxima de uma arquitetura neural totalmente local no celular, mas possui maior complexidade de empacotamento, seleção de modelo e validação de voz em português. Por isso, não deve bloquear a primeira demonstração funcional do projeto.
+
+## Classificação do MVP
+
+O PDF indica **Moonshine + Android TTS** como combinação inicial. A análise técnica acrescenta que Moonshine não lista português brasileiro no catálogo atual consultado. Assim, o escopo fica organizado em três níveis:
+
+| Nível | STT | TTS | Objetivo |
+|---|---|---|---|
+| MVP original | `feat/stt-moonshine` | `feat/tts-native` | Reproduzir a arquitetura prevista no planejamento e validar o fluxo local. |
+| MVP de segurança linguística | `feat/stt-whisper-cpp-tflite` | `feat/tts-native` | Garantir uma alternativa de STT mais segura para português brasileiro. |
+| Evolução neural local | `feat/stt-whisper-cpp-tflite` ou Moonshine validado | `feat/tts-kokoro-82m` ou `feat/tts-piper-sherpa-onnx` | Comparar qualidade e preparar execução neural no dispositivo. |
+
+A decisão final do MVP será baseada em testes, e não apenas no nome do modelo. Cada branch deve produzir um relatório comparável contendo, no mínimo, idioma, modelo, tamanho, memória, latência, qualidade percebida e limitações.
 
 ## Fluxo de trabalho
 
-Cada branch deve conter uma única alternativa de implementação, seus testes, um pequeno relatório de benchmark e a documentação de instalação. A branch não deve incluir modelos grandes, arquivos de áudio pessoais, binários ou tokens.
-
-O fluxo sugerido é:
+O fluxo local para iniciar uma análise é:
 
 ```bash
 git switch main
 git pull --ff-only
-git switch -c feat/stt-whisper-cpp-base
-# implementar e testar somente essa alternativa
+git switch -c feat/stt-moonshine
+# implementar e testar somente Moonshine
 git add stt tests docs
-git commit -m "feat: add whisper cpp base stt"
-git push -u origin feat/stt-whisper-cpp-base
+git commit -m "feat: evaluate moonshine stt"
+git push -u origin feat/stt-moonshine
 ```
 
-Depois, a branch pode ser revisada e comparada com as demais. A incorporação na `main` deve ocorrer por pull request, nunca por trabalho direto na branch principal. Enquanto o acesso de publicação não estiver corrigido, as branches podem ser criadas e testadas localmente sem serem enviadas ao GitHub.
+Na prática, cada uma das cinco branches será trabalhada separadamente. O commit deve ser feito dentro da branch da solução, nunca diretamente na `main`. Depois do envio, a branch pode ser comparada e revisada por pull request. O merge só ocorre quando a equipe decidir que aquela solução é a escolhida para o MVP.
+
+Modelos, binários, arquivos de áudio pessoais, caches e tokens não devem ser enviados ao GitHub. O `.gitignore` do projeto já contém regras para esses artefatos.
+
+## Estado atual da cópia local
+
+As cinco branches foram criadas localmente a partir da branch de fundação:
+
+- `feat/stt-moonshine`
+- `feat/stt-whisper-cpp-tflite`
+- `feat/tts-native`
+- `feat/tts-kokoro-82m`
+- `feat/tts-piper-sherpa-onnx`
+
+A branch `main` local continua apontando para o estado original do repositório. As branches remotas só devem ser criadas depois que a autenticação de publicação estiver funcionando.
 
 ## Referências
 
-1. Planejamento do Tetiruã — diagrama e PDF fornecidos no contexto do projeto.
+1. [Modelos disponíveis do Moonshine](https://moonshine-voice.readthedocs.io/en/latest/models/available-models/)
 2. [whisper.cpp](https://github.com/ggml-org/whisper.cpp)
-3. [Moonshine Voice](https://github.com/moonshine-ai/moonshine)
-4. [Modelos disponíveis do Moonshine](https://moonshine-voice.readthedocs.io/en/latest/models/available-models/)
-5. [Kokoro](https://github.com/hexgrad/kokoro)
-6. [Vozes do Kokoro-82M](https://huggingface.co/hexgrad/Kokoro-82M/blob/main/VOICES.md)
-7. [sherpa-onnx](https://github.com/k2-fsa/sherpa-onnx)
+3. [Vozes do Kokoro-82M](https://huggingface.co/hexgrad/Kokoro-82M/blob/main/VOICES.md)
+4. [sherpa-onnx](https://github.com/k2-fsa/sherpa-onnx)
