@@ -1,0 +1,3 @@
+"""
+monorepo principal do stt
+"""
