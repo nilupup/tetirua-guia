@@ -23,7 +23,7 @@ O catálogo oficial consultado do Moonshine não lista português brasileiro ent
 
 Para a integração Android, sherpa-onnx e Android TTS permanecem como próximos caminhos de implementação. A arquitetura foi feita para permitir a substituição do motor sem alterar o orquestrador.
 
-Consulte [`docs/audio-architecture.md`](docs/audio-architecture.md) para conhecer as decisões, referências e próximos passos.
+Consulte [`docs/audio-architecture.md`](docs/audio-architecture.md) para conhecer as decisões, referências e próximos passos. Consulte também [`docs/branch-strategy.md`](docs/branch-strategy.md) para entender a divisão por modelo, o escopo do MVP e o fluxo de branches.
 
 ## Instalação
 
