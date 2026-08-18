@@ -1,0 +1,47 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.pytest_cache/
+.ruff_cache/
+.venv/
+venv/
+
+# Modelos e artefatos de ML
+models/
+artifacts/
+*.onnx
+*.ort
+*.bin
+*.ggml
+*.gguf
+*.safetensors
+
+# Áudio e dados locais
+*.wav
+*.mp3
+*.m4a
+*.flac
+*.ogg
+*.webm
+*.pcm
+
+# Builds e binários
+build/
+dist/
+*.so
+*.dylib
+*.dll
+*.apk
+
+# Configurações locais e segredos
+.env
+.env.*
+!.env.example
+*.key
+*.pem
+
+# Ferramentas e sistema operacional
+.DS_Store
+.idea/
+.vscode/
