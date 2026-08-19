@@ -1,63 +1,82 @@
-# Tetiruã Audio Android
+# Tetiruã Audio Android — Vosk/Kaldi
 
-Este módulo é a primeira base Android/Kotlin da camada de áudio do Tetiruã. Ele separa a aplicação móvel dos adaptadores Python de pesquisa e mantém os contratos comuns de wake word, VAD, STT e TTS.
+Esta branch (`feat/stt-vosk-kaldi`) é uma aplicação Android/Kotlin independente para testar **Vosk/Kaldi** como STT offline em português brasileiro. Ela não usa Whisper.cpp, Moonshine, sherpa-onnx, Piper ou Kokoro como dependências de runtime.
 
-## O que já funciona no esqueleto
-
-A `MainActivity` solicita permissão de microfone, simula a ativação da wake word e reproduz texto em português brasileiro com o `AndroidTtsEngine`. O teste demonstrativo não chama LLM, VLM, GPS ou web search; ele valida apenas o caminho de áudio local:
+## Fluxo desta branch
 
 ```text
-wake_word.detected → vad.speech.started → stt.final (simulado) → tts.started → tts.completed
+microfone Android
+    ↓
+PCM mono 16 kHz / WAV temporário
+    ↓
+Vosk Recognizer via AAR Android
+    ↓
+TranscriptionResult em pt-BR
 ```
 
-O TTS nativo não exige pesos adicionais. Para testar, abra a pasta `android/` no Android Studio, sincronize o Gradle e execute o aplicativo em um dispositivo Android ou emulador com um mecanismo de voz em português instalado.
+A Activity atual grava seis segundos apenas para manter um baseline comparável com as outras branches. O fluxo final do Tetiruã substituirá essa duração fixa por VAD e wake word.
 
-## Situação dos motores
+## Modelo e runtime
 
-| Motor | Papel | Caminho Android/Kotlin | Estado deste módulo |
-|---|---|---|---|
-| Moonshine | STT | Binding/runtime nativo a validar | Catálogo e contrato preparados; adaptador específico será implementado na branch `feat/stt-moonshine`. |
-| whisper.cpp | STT | JNI/binding Java/Kotlin e modelo local | Catálogo e contrato preparados; adaptador específico será implementado na branch `feat/stt-whisper-cpp-tflite`. |
-| Android TTS | TTS | API nativa `android.speech.tts.TextToSpeech` | Adaptador funcional inicial em `tts/AndroidTtsEngine.kt`. |
-| AVSpeechSynthesizer | TTS | Apenas iOS; não pertence ao módulo Android | Mantido na documentação multiplataforma. |
-| Kokoro-82M | TTS | Runtime ONNX/sherpa-onnx, não Python direto | Catálogo e contrato preparados; runtime Android será validado na branch `feat/tts-kokoro-82m`. |
-| Piper + sherpa-onnx | TTS | APIs Kotlin/Java e bibliotecas nativas por ABI | Catálogo e contrato preparados; integração será implementada na branch `feat/tts-piper-sherpa-onnx`. |
-| Wake word/KWS | Ativação | `KeywordSpotter` via sherpa-onnx ou motor dedicado | Contrato preparado; motor definitivo será comparado separadamente. |
-| VAD | Delimitação da fala | `Vad` via sherpa-onnx ou modelo compatível | Contrato preparado; simulador e integração real serão separados. |
+O modelo usado é `vosk-model-small-pt-0.3`, listado no catálogo oficial do Vosk para português/português brasileiro. Ele é pequeno o suficiente para um primeiro teste móvel e fica fora do Git.
 
-## Modelos e bibliotecas
+| Item | Valor |
+|---|---|
+| Modelo | `vosk-model-small-pt-0.3` |
+| Idioma | pt-BR/português |
+| Runtime | `com.alphacephei:vosk-android:0.3.75@aar` |
+| Binding nativo | `net.java.dev.jna:jna:5.18.1@aar` |
+| Instalação local | `android/scripts/fetch-vosk-ptbr-model.sh` |
+| Diretório de assets | `android/app/src/main/assets/vosk-model-small-pt-0.3/` |
+| Política | Modelo, ZIP, bibliotecas nativas e APK não entram no Git |
 
-Pesos de modelos, arquivos ONNX, arquivos Piper, modelos Whisper, modelos Moonshine, vozes e bibliotecas nativas `.so` não devem ser enviados ao Git por padrão. O projeto deve versionar:
+Fontes: [Vosk](https://alphacephei.com/vosk/), [Vosk Android](https://alphacephei.com/vosk/android), [catálogo de modelos](https://alphacephei.com/vosk/models) e [API oficial](https://github.com/alphacep/vosk-api).
 
-1. contratos e adaptadores Kotlin;
-2. configuração de modelo;
-3. scripts ou instruções de download;
-4. hashes e versões esperadas;
-5. testes sem pesos grandes;
-6. documentação de licença e redistribuição.
+## Como configurar
 
-Para sherpa-onnx, a documentação oficial descreve bibliotecas Android pré-compiladas ou build com NDK e arquivos nativos organizados por ABI. A integração inicial deverá registrar a versão exata utilizada e manter os binários em uma etapa de empacotamento, não misturados ao código-fonte.
+Abra a pasta `android/` no Android Studio e inicialize a branch:
 
-## Execução
+```bash
+git checkout feat/stt-vosk-kaldi
+git pull --ff-only origin feat/stt-vosk-kaldi
+```
 
-No Android Studio:
+No Git Bash, a partir da raiz do repositório, instale o modelo localmente:
+
+```bash
+bash android/scripts/fetch-vosk-ptbr-model.sh
+```
+
+No Windows, também é possível baixar o ZIP pelo endereço oficial e descompactá-lo em:
 
 ```text
-Open -> /home/ubuntu/tetirua-guia/android
-Sync Project with Gradle Files
-Run app
+android/app/src/main/assets/vosk-model-small-pt-0.3/
 ```
 
-Para usar a aplicação em dispositivo físico, habilite a depuração USB e aceite a permissão de microfone. Para testar o TTS, use o botão `Simular wake word e falar`. A etapa inicial não grava áudio nem envia dados para a internet.
+O diretório deve conter pelo menos `final.mdl`, `HCLr.fst`, `Gr.fst`, `mfcc.conf`, `phones.txt` e a pasta `ivector/`. O aplicativo copia os assets para `filesDir` na primeira execução porque o construtor Java do Vosk recebe um caminho local de diretório.
 
-## Próximas branches
+Depois de instalar o modelo, sincronize o Gradle, escolha **Build > Clean Project**, depois **Build > Assemble Project** e clique em **Run**. Autorize o microfone no Samsung SM-S921B.
 
-A base comum deve ser levada para as cinco branches de solução, mas os adaptadores específicos devem ser desenvolvidos separadamente:
+## Teste
 
-- `feat/stt-moonshine`;
-- `feat/stt-whisper-cpp-tflite`;
-- `feat/tts-native`;
-- `feat/tts-kokoro-82m`;
-- `feat/tts-piper-sherpa-onnx`.
+Pressione **Gravar 6 segundos e transcrever** e diga:
 
-Cada branch deverá conter teste, instrução de instalação, modelo compatível, benchmark e limitações. Nenhuma branch deve fazer merge na `main` antes da análise do Henrique e da comparação com as demais alternativas.
+```text
+Olá, eu sou Fernando.
+```
+
+Registre o tempo mostrado em `Estado: concluído em ... ms` e o texto exibido. Repita com:
+
+```text
+Tetiruã, explique este monumento.
+```
+
+A comparação deve usar o mesmo áudio/frase, aparelho e condições das branches Moonshine e Whisper. O tempo desta Activity inclui leitura do WAV, instalação/carregamento inicial do modelo e inferência; a segunda execução, sem usar **Liberar modelo**, mede melhor o custo de inferência aquecido.
+
+## Limitações atuais
+
+A captura ainda é fixa em seis segundos. VAD, wake word “Tetiruã”, streaming incremental e resultados parciais do `getPartialResult()` ainda serão integrados depois. O modelo pequeno tem como principal risco a precisão em fala livre, nomes próprios e perguntas longas; por isso esta branch deve ser avaliada por latência e qualidade, não apenas por conseguir transcrever uma frase curta.
+
+## Independência entre branches
+
+Esta branch foi criada a partir do checkpoint comum `checkpoint/mensagem-1` (`bb20cc5`) e permanece separada das cinco alternativas anteriores. A branch Conformer/RNN-T será desenvolvida em `feat/stt-conformer-rnnt-sherpa-onnx`. Nenhuma dessas branches deve ser mesclada na `main` sem aprovação do Henrique.

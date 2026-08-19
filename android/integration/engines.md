@@ -1,95 +1,81 @@
-# Integração dos engines no Android
+# Integração do engine Vosk/Kaldi no Android
 
 ## Princípio
 
-O aplicativo Kotlin depende apenas dos contratos em `core/`. Cada engine implementa `SpeechToTextEngine` ou `TextToSpeechEngine` por meio de um runtime que pode ser nativo, JNI, ONNX ou uma API da plataforma.
+Esta branch (`feat/stt-vosk-kaldi`) é uma aplicação Android/Kotlin independente. O fluxo ativo implementa apenas `SpeechToTextEngine` com o runtime **Vosk Android**, baseado no ecossistema Kaldi. Whisper, Moonshine, sherpa-onnx, Piper, Kokoro e TTS não são dependências executáveis desta branch.
 
-| Engine | Runtime Android | Integração | Dependência de modelo |
+| Componente | Runtime Android | Implementação nesta branch | Modelo/artefato |
 |---|---|---|---|
-| Moonshine | sherpa-onnx ou binding próprio | Preferir wrapper do runtime e manter `MoonshineSttEngine` atrás de `NativeSttRuntime`. | Modelos Moonshine v2 e tokens/configuração correspondentes. |
-| whisper.cpp | C/C++ + JNI/Java | Usar o binding Android/Java oficial ou uma camada JNI controlada. | Modelo Whisper `.bin`/formato suportado, fora do Git. |
-| TFLite | TensorFlow Lite/ONNX conforme conversão | Implementar runtime separado, mantendo o mesmo `NativeSttRuntime`. | Arquivos `.tflite` e metadados, fora do Git. |
-| Android TTS | `android.speech.tts.TextToSpeech` | Já existe em `tts/AndroidTtsEngine.kt`. | Nenhum peso obrigatório; depende das vozes instaladas no dispositivo. |
-| AVSpeechSynthesizer | API nativa iOS | Não pertence ao módulo Android; permanece no contrato multiplataforma. | Vozes da plataforma iOS. |
-| Kokoro-82M | sherpa-onnx `OfflineTts`/ONNX | Usar `OfflineTtsKokoroModelConfig` e encapsular geração de `GeneratedAudio`. | Modelo Kokoro, vozes, tokens e dados auxiliares. |
-| Piper+sherpa-onnx | sherpa-onnx `OfflineTts`/VITS | Usar configuração VITS e encapsular o WAV ou stream produzido. | Modelo Piper, `tokens.txt`, vocabulário/lexicon quando necessário. |
-| Wake word | sherpa-onnx `KeywordSpotter` | Implementar adapter que converte `KeywordSpotterResult` em `WakeWordResult`. | Modelo KWS e arquivo de keywords. |
-| VAD | sherpa-onnx `Vad` | Implementar adapter que alimenta `acceptWaveform` e converte segmentos em eventos. | `silero_vad.onnx` ou outro modelo VAD compatível. |
+| Vosk/Kaldi STT | `com.alphacephei:vosk-android:0.3.75@aar` + JNA | `VoskSttEngine` | `vosk-model-small-pt-0.3`, fora do Git |
+| Gravação baseline | `AudioRecord` | `VoskAudioRecorder` | PCM mono 16 kHz, WAV temporário |
+| Leitura de áudio | Kotlin/JVM | `VoskPcmWavReader` | WAV PCM 16-bit mono |
+| Instalação do modelo | Android `AssetManager` | `VoskModelInstaller` | Copia assets para `filesDir` |
+| VAD | Contrato comum apenas | Ainda não implementado nesta branch | Futuro adaptador independente |
+| Wake word “Tetiruã” | Contrato comum apenas | Ainda não implementado nesta branch | Futuro adaptador independente |
 
-## Integração com sherpa-onnx
+## Dependências
 
-A documentação Kotlin oficial do sherpa-onnx fornece classes para `OfflineRecognizer`, `OfflineTts`, `Vad` e `KeywordSpotter`. A aplicação deve copiar ou depender da API Kotlin e distribuir as bibliotecas nativas por ABI:
+As coordenadas foram conferidas no demo Android oficial do Vosk:
+
+```kotlin
+implementation("net.java.dev.jna:jna:5.18.1@aar")
+implementation("com.alphacephei:vosk-android:0.3.75@aar")
+```
+
+Os repositórios `google()` e `mavenCentral()` estão declarados em `settings.gradle.kts`.
+
+## Fluxo de reconhecimento
+
+O `VoskSttEngine` instala o diretório de modelo a partir dos assets na primeira utilização e cria `org.vosk.Model` a partir do caminho local. Para cada transcrição, ele cria um `org.vosk.Recognizer` com taxa de 16.000 Hz, envia `short[]` PCM mono 16-bit por `acceptWaveForm` e chama `getFinalResult()` para obter o texto final em JSON.
 
 ```text
-app/src/main/jniLibs/arm64-v8a/libonnxruntime.so
-app/src/main/jniLibs/arm64-v8a/libsherpa-onnx-jni.so
+AssetManager
+    ↓
+filesDir/vosk-model-small-pt-0.3/
+    ↓
+org.vosk.Model
+    ↓
+org.vosk.Recognizer(16_000 Hz)
+    ↓
+acceptWaveForm(short[])
+    ↓
+getFinalResult()
+    ↓
+TranscriptionResult
 ```
 
-Para emulador, pode ser necessário preparar também `x86_64`. A versão das bibliotecas deve ser registrada no README e mantida igual à versão dos arquivos Kotlin/API utilizados.
+A API do Vosk exige que a taxa de amostragem informada ao `Recognizer` corresponda ao áudio. Por isso o gravador usa áudio mono PCM de 16 kHz e o leitor valida o WAV antes da inferência.
 
-### Kokoro via sherpa-onnx
+## Modelo local
 
-A configuração deve seguir a ideia abaixo, com os nomes reais dos arquivos fornecidos pelo pacote de modelo escolhido:
+O modelo oficial deve ser instalado com:
 
-```kotlin
-val config = OfflineTtsConfig(
-    model = OfflineTtsModelConfig(
-        kokoro = OfflineTtsKokoroModelConfig(
-            model = "$modelDir/model.onnx",
-            voices = "$modelDir/voices.bin",
-            tokens = "$modelDir/tokens.txt",
-            dataDir = "$modelDir/espeak-ng-data",
-            lexicon = "$modelDir/lexicon-us-en.txt",
-        ),
-        numThreads = 4,
-        provider = "cpu",
-    ),
-)
-val tts = OfflineTts(assetManager, config)
-val generated = tts.generate(text, sid = voiceId, speed = speed)
-generated.save(outputPath)
+```bash
+bash android/scripts/fetch-vosk-ptbr-model.sh
 ```
 
-Os nomes e caminhos devem ser conferidos contra o pacote de modelo escolhido. Não devemos colocar esses arquivos grandes no Git apenas para fazer o exemplo compilar.
+Os arquivos devem ficar em:
 
-### Piper via sherpa-onnx
-
-Para Piper, a configuração normalmente utiliza a família VITS do `OfflineTts`:
-
-```kotlin
-val config = OfflineTtsConfig(
-    model = OfflineTtsModelConfig(
-        vits = OfflineTtsVitsModelConfig(
-            model = "$modelDir/model.onnx",
-            tokens = "$modelDir/tokens.txt",
-            lexicon = "$modelDir/lexicon.txt",
-            dataDir = "$modelDir/espeak-ng-data",
-        ),
-        numThreads = 2,
-        provider = "cpu",
-    ),
-)
+```text
+android/app/src/main/assets/vosk-model-small-pt-0.3/
 ```
 
-O pacote Piper selecionado precisa ser compatível com o runtime e com o idioma desejado. O adaptador não deve presumir que toda voz Piper suporta `pt-BR`.
+O diretório precisa conter, entre outros arquivos, `final.mdl`, `HCLr.fst`, `Gr.fst`, `mfcc.conf`, `phones.txt` e `ivector/`. O ZIP e o diretório descompactado são ignorados pelo `.gitignore` e não podem ser adicionados com `git add`.
 
-### Moonshine e Whisper via sherpa-onnx
+## Teste no aparelho
 
-A API oficial do `OfflineRecognizer` possui configurações para Whisper e Moonshine. Para Moonshine v2, o catálogo oficial descreve encoder e decoder mesclado; a estrutura exata dos arquivos deve seguir o pacote do modelo. Para Whisper, o adaptador deve informar idioma e tarefa de transcrição:
+Na Activity, pressione **Gravar 6 segundos e transcrever**, diga uma frase em português e aguarde o estado final. O resultado mostra o engine, o modelo e o tempo de processamento. O indicador informa explicitamente que a operação é local e não depende de internet.
 
-```kotlin
-val whisperConfig = OfflineWhisperModelConfig(
-    encoder = "$modelDir/encoder.onnx",
-    decoder = "$modelDir/decoder.onnx",
-    language = "pt",
-    task = "transcribe",
-)
-```
+O tempo registrado começa depois da gravação e inclui leitura do WAV, instalação/carregamento do modelo quando necessário e inferência. Para comparar inferência aquecida, repita o teste sem pressionar **Liberar modelo**.
 
-O resultado de `OfflineRecognizer` é convertido para `TranscriptionResult`. O orquestrador não recebe objetos do sherpa-onnx diretamente.
+## Trabalho futuro
 
-## O que ainda precisa ser implementado em cada branch
+A gravação fixa de seis segundos existe somente como baseline entre branches. O fluxo de produção deverá adicionar VAD para detectar início/fim de fala e uma implementação independente de wake word para “Tetiruã”. Esses componentes não devem ser introduzidos por meio de um runtime compartilhado com outras branches sem uma decisão explícita da arquitetura.
 
-A base comum já contém contratos, catálogo, pipeline, TTS Android funcional e adapters por porta. Cada branch de engine deve substituir a porta genérica pelo runtime concreto, adicionar os arquivos de configuração necessários, documentar o download do modelo e fornecer pelo menos um teste em aparelho ou emulador.
+## Referências
 
-A ausência de pesos ou bibliotecas nativas nesta primeira publicação é intencional. Isso mantém o repositório leve, evita problemas de licença e permite que cada colaborador escolha a variante de modelo sem duplicar artefatos grandes.
+- [Vosk](https://alphacephei.com/vosk/)
+- [Vosk Android](https://alphacephei.com/vosk/android)
+- [Catálogo oficial de modelos](https://alphacephei.com/vosk/models)
+- [Vosk API](https://github.com/alphacep/vosk-api)
+- [Demo oficial Vosk Android](https://github.com/alphacep/vosk-android-demo)

@@ -1,0 +1,39 @@
+{
+  "schemaVersion": "1.0",
+  "branch": "feat/stt-vosk-kaldi",
+  "activeModel": {
+    "id": "vosk-model-small-pt-0.3",
+    "role": "STT",
+    "runtime": "Vosk Android AAR 0.3.75 + JNA 5.18.1",
+    "version": "vosk-model-small-pt-0.3",
+    "languages": ["pt-BR"],
+    "files": [
+      {
+        "name": "vosk-model-small-pt-0.3.zip",
+        "destination": "android/app/src/main/assets/vosk-model-small-pt-0.3/",
+        "sizeBytes": 32453112,
+        "sha256": "6e1ce909032e1afa7a88e68a3d628ecafff302bdf195befab308826c395e93b7"
+      }
+    ],
+    "sourceUrl": "https://alphacephei.com/vosk/models/vosk-model-small-pt-0.3.zip",
+    "sourceApi": "https://github.com/alphacep/vosk-api",
+    "license": "Modelo listado pelo catálogo oficial com Apache 2.0; confirmar notices do runtime antes da redistribuição",
+    "weightsInGit": false
+  },
+  "runtime": {
+    "maven": [
+      "net.java.dev.jna:jna:5.18.1@aar",
+      "com.alphacephei:vosk-android:0.3.75@aar"
+    ],
+    "modelInstaller": "android/app/src/main/java/br/com/tetirua/audio/stt/VoskModelInstaller.kt",
+    "abiTarget": "arm64-v8a no primeiro teste; ampliar depois se necessário"
+  },
+  "codeEntryPoints": [
+    "android/app/src/main/java/br/com/tetirua/audio/stt/VoskSttEngine.kt",
+    "android/app/src/main/java/br/com/tetirua/audio/stt/VoskModelInstaller.kt",
+    "android/app/src/main/java/br/com/tetirua/audio/stt/VoskAudioRecorder.kt",
+    "android/app/src/main/java/br/com/tetirua/audio/stt/VoskPcmWavReader.kt",
+    "android/app/src/main/java/br/com/tetirua/audio/MainActivity.kt"
+  ],
+  "artifactPolicy": "Não versionar o ZIP, o diretório do modelo, bibliotecas geradas ou APKs. Usar android/scripts/fetch-vosk-ptbr-model.sh para instalar o modelo localmente."
+}

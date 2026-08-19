@@ -43,6 +43,15 @@ object ModelCatalog {
             artifactPolicy = "modelo local fora do Git",
         ),
         ModelOption(
+            id = "vosk-kaldi",
+            role = AudioRole.STT,
+            runtime = "Vosk Android AAR + Kaldi",
+            platformStatus = "implementado nesta branch Android",
+            modelHint = "vosk-model-small-pt-0.3, 31 MB, pt-BR",
+            sourceUrl = "https://github.com/alphacep/vosk-api",
+            artifactPolicy = "modelo local fora do Git",
+        ),
+        ModelOption(
             id = "tts-native",
             role = AudioRole.TTS,
             runtime = "Android TextToSpeech / AVSpeechSynthesizer",

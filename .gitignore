@@ -9,6 +9,8 @@ venv/
 
 # Modelos e artefatos de ML
 models/
+android/app/src/main/assets/vosk-model-*/
+android/local-models/vosk/
 artifacts/
 *.onnx
 *.ort
