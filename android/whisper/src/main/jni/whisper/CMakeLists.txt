@@ -52,8 +52,6 @@ target_compile_definitions(
 )
 target_compile_options(whisper PRIVATE -O3 -fvisibility=hidden -fvisibility-inlines-hidden)
 target_link_options(whisper PRIVATE
-    --gc-sections
-    --exclude-libs,ALL
     ${WHISPER_16K_LINK_OPTIONS}
 )
 target_link_libraries(whisper log android ggml)
