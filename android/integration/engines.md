@@ -1,35 +1,41 @@
 # Integração dos engines no Android
 
-## Princípio
+## Princípio de independência
 
-O aplicativo Kotlin depende apenas dos contratos em `core/`. Cada engine implementa `SpeechToTextEngine` ou `TextToSpeechEngine` por meio de um runtime que pode ser nativo, JNI, ONNX ou uma API da plataforma.
+O aplicativo Kotlin depende dos contratos em `core/`, mas cada branch de experimento escolhe seu próprio runtime. **Não existe um runtime comum obrigatório.** Para testar outra alternativa, troque de branch; não adicione todos os runtimes ao mesmo APK.
 
-| Engine | Runtime Android | Integração | Dependência de modelo |
+| Engine | Runtime Android da branch | Integração | Estado |
 |---|---|---|---|
-| Moonshine | sherpa-onnx ou binding próprio | Preferir wrapper do runtime e manter `MoonshineSttEngine` atrás de `NativeSttRuntime`. | Modelos Moonshine v2 e tokens/configuração correspondentes. |
-| whisper.cpp | C/C++ + JNI/Java | Usar o binding Android/Java oficial ou uma camada JNI controlada. | Modelo Whisper `.bin`/formato suportado, fora do Git. |
-| TFLite | TensorFlow Lite/ONNX conforme conversão | Implementar runtime separado, mantendo o mesmo `NativeSttRuntime`. | Arquivos `.tflite` e metadados, fora do Git. |
-| Android TTS | `android.speech.tts.TextToSpeech` | Já existe em `tts/AndroidTtsEngine.kt`. | Nenhum peso obrigatório; depende das vozes instaladas no dispositivo. |
-| AVSpeechSynthesizer | API nativa iOS | Não pertence ao módulo Android; permanece no contrato multiplataforma. | Vozes da plataforma iOS. |
-| Kokoro-82M | sherpa-onnx `OfflineTts`/ONNX | Usar `OfflineTtsKokoroModelConfig` e encapsular geração de `GeneratedAudio`. | Modelo Kokoro, vozes, tokens e dados auxiliares. |
-| Piper+sherpa-onnx | sherpa-onnx `OfflineTts`/VITS | Usar configuração VITS e encapsular o WAV ou stream produzido. | Modelo Piper, `tokens.txt`, vocabulário/lexicon quando necessário. |
-| Wake word | sherpa-onnx `KeywordSpotter` | Implementar adapter que converte `KeywordSpotterResult` em `WakeWordResult`. | Modelo KWS e arquivo de keywords. |
-| VAD | sherpa-onnx `Vad` | Implementar adapter que alimenta `acceptWaveform` e converte segmentos em eventos. | `silero_vad.onnx` ou outro modelo VAD compatível. |
+| Moonshine | `ai.moonshine:moonshine-voice:0.1.3` | `MicTranscriber` oficial, encapsulado em `MoonshineSttEngine`. | Implementado nesta branch. |
+| whisper.cpp | C/C++ + JNI/Java próprio | Binding JNI controlado e submódulo upstream. | Implementado em `feat/stt-whisper-cpp-tflite`. |
+| Android TTS | `android.speech.tts.TextToSpeech` | Adaptador `AndroidTtsEngine.kt`. | Base funcional; Activity própria na branch TTS nativa. |
+| Kokoro-82M | Runtime ONNX/sherpa-onnx somente na branch Kokoro, se escolhido. | Adaptador `KokoroTtsEngine`. | Em implementação futura. |
+| Piper + sherpa-onnx | sherpa-onnx somente nesta branch | `OfflineTts` com configuração VITS/Piper. | Em implementação futura. |
+| Wake word/KWS | Motor dedicado ou sherpa-onnx somente na branch que o adotar. | Contrato `WakeWordDetector`. | Contrato/documentação. |
+| VAD | Motor dedicado ou sherpa-onnx somente na branch que o adotar. | Contrato `VoiceActivityDetector`. | Contrato/documentação. |
 
-## Integração com sherpa-onnx
+## Moonshine Voice Android
 
-A documentação Kotlin oficial do sherpa-onnx fornece classes para `OfflineRecognizer`, `OfflineTts`, `Vad` e `KeywordSpotter`. A aplicação deve copiar ou depender da API Kotlin e distribuir as bibliotecas nativas por ABI:
+A branch `feat/stt-moonshine` usa o artefato Maven oficial `ai.moonshine:moonshine-voice:0.1.3`. A Activity chama `MicTranscriber.load()`, `start()` e `stop()`, exibindo texto parcial e final. O SDK gerencia o microfone e o cache do modelo. A documentação consultada lista modelos para árabe, inglês, espanhol, japonês, coreano, mandarim, ucraniano e vietnamita; não há modelo pt-BR publicado na versão usada, por isso a demonstração usa inglês e o adaptador emite aviso ao produzir o resultado.
+
+## Whisper.cpp Android
+
+A branch `feat/stt-whisper-cpp-tflite` compila whisper.cpp pelo NDK/CMake, usa JNI próprio e carrega um modelo `.bin` dos assets. Ela não depende de Moonshine nem de sherpa-onnx. O modelo e bibliotecas geradas permanecem fora do Git.
+
+## sherpa-onnx nas branches que o adotarem
+
+Nas branches Kokoro e Piper, sherpa-onnx é runtime exclusivo daquela branch. Bibliotecas nativas são organizadas por ABI, por exemplo:
 
 ```text
 app/src/main/jniLibs/arm64-v8a/libonnxruntime.so
 app/src/main/jniLibs/arm64-v8a/libsherpa-onnx-jni.so
 ```
 
-Para emulador, pode ser necessário preparar também `x86_64`. A versão das bibliotecas deve ser registrada no README e mantida igual à versão dos arquivos Kotlin/API utilizados.
+A versão das bibliotecas deve ser registrada no README da branch e os binários grandes não devem ser enviados ao repositório sem decisão explícita de empacotamento.
 
 ### Kokoro via sherpa-onnx
 
-A configuração deve seguir a ideia abaixo, com os nomes reais dos arquivos fornecidos pelo pacote de modelo escolhido:
+A configuração deve seguir a API e o pacote de modelo escolhidos, com nomes reais conferidos na versão adotada:
 
 ```kotlin
 val config = OfflineTtsConfig(
@@ -45,12 +51,7 @@ val config = OfflineTtsConfig(
         provider = "cpu",
     ),
 )
-val tts = OfflineTts(assetManager, config)
-val generated = tts.generate(text, sid = voiceId, speed = speed)
-generated.save(outputPath)
 ```
-
-Os nomes e caminhos devem ser conferidos contra o pacote de modelo escolhido. Não devemos colocar esses arquivos grandes no Git apenas para fazer o exemplo compilar.
 
 ### Piper via sherpa-onnx
 
@@ -71,25 +72,8 @@ val config = OfflineTtsConfig(
 )
 ```
 
-O pacote Piper selecionado precisa ser compatível com o runtime e com o idioma desejado. O adaptador não deve presumir que toda voz Piper suporta `pt-BR`.
+O pacote selecionado precisa ser compatível com o runtime e com o idioma desejado. O adaptador não deve presumir que toda voz Piper ou Kokoro suporta pt-BR.
 
-### Moonshine e Whisper via sherpa-onnx
+## Modelos e bibliotecas
 
-A API oficial do `OfflineRecognizer` possui configurações para Whisper e Moonshine. Para Moonshine v2, o catálogo oficial descreve encoder e decoder mesclado; a estrutura exata dos arquivos deve seguir o pacote do modelo. Para Whisper, o adaptador deve informar idioma e tarefa de transcrição:
-
-```kotlin
-val whisperConfig = OfflineWhisperModelConfig(
-    encoder = "$modelDir/encoder.onnx",
-    decoder = "$modelDir/decoder.onnx",
-    language = "pt",
-    task = "transcribe",
-)
-```
-
-O resultado de `OfflineRecognizer` é convertido para `TranscriptionResult`. O orquestrador não recebe objetos do sherpa-onnx diretamente.
-
-## O que ainda precisa ser implementado em cada branch
-
-A base comum já contém contratos, catálogo, pipeline, TTS Android funcional e adapters por porta. Cada branch de engine deve substituir a porta genérica pelo runtime concreto, adicionar os arquivos de configuração necessários, documentar o download do modelo e fornecer pelo menos um teste em aparelho ou emulador.
-
-A ausência de pesos ou bibliotecas nativas nesta primeira publicação é intencional. Isso mantém o repositório leve, evita problemas de licença e permite que cada colaborador escolha a variante de modelo sem duplicar artefatos grandes.
+Pesos de modelos, arquivos ONNX, modelos Whisper/Moonshine, vozes e bibliotecas nativas `.so` não devem ser enviados ao Git por padrão. O projeto versiona contratos, configuração, instruções de download, hashes/versões esperadas, testes sem pesos grandes e documentação de licença.
