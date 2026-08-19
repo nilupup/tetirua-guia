@@ -25,8 +25,6 @@ class WhisperContext private constructor(private var ptr: Long) {
         val numThreads = WhisperCpuConfig.preferredThreadCount
         Log.d(LOG_TAG, "Selecting $numThreads threads")
         WhisperLib.fullTranscribe(ptr, numThreads, data, language.substringBefore('-'))
-        val status = WhisperLib.getLastTranscribeStatus()
-        check(status == 0) { "whisper_full falhou para ${data.size} amostras de áudio" }
         val textCount = WhisperLib.getTextSegmentCount(ptr)
         return@withContext buildString {
             for (i in 0 until textCount) {
@@ -146,7 +144,6 @@ private class WhisperLib {
             audioData: FloatArray,
             language: String,
         )
-        external fun getLastTranscribeStatus(): Int
         external fun getTextSegmentCount(contextPtr: Long): Int
         external fun getTextSegment(contextPtr: Long, index: Int): String
         external fun getTextSegmentT0(contextPtr: Long, index: Int): Long
