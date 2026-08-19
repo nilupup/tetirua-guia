@@ -5,7 +5,6 @@ import android.content.pm.PackageManager
 import android.os.Bundle
 import android.view.ViewGroup
 import android.widget.Button
-import android.widget.EditText
 import android.widget.LinearLayout
 import android.widget.ScrollView
 import android.widget.TextView
@@ -13,39 +12,30 @@ import androidx.appcompat.app.AppCompatActivity
 import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
 import br.com.tetirua.audio.core.AudioIds
-import br.com.tetirua.audio.core.AudioPipeline
-import br.com.tetirua.audio.core.AudioPipelineState
-import br.com.tetirua.audio.core.SynthesisRequest
 import br.com.tetirua.audio.core.TranscriptionRequest
-import br.com.tetirua.audio.core.TtsOutputMode
-import br.com.tetirua.audio.stt.SimulatedSttEngine
-import br.com.tetirua.audio.tts.AndroidTtsEngine
+import br.com.tetirua.audio.stt.ParakeetAudioRecorder
+import br.com.tetirua.audio.stt.ParakeetTdtSttEngine
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.launch
+import java.io.File
 
+/** Aplicação demonstrativa desta branch: Parakeet TDT v3 via sherpa-onnx. */
 class MainActivity : AppCompatActivity() {
-    private lateinit var ttsEngine: AndroidTtsEngine
-    private lateinit var statusText: TextView
-    private lateinit var questionInput: EditText
     private val activityScope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
+    private val recorder = ParakeetAudioRecorder()
+    private var parakeetEngine: ParakeetTdtSttEngine? = null
+    private lateinit var recordButton: Button
+    private lateinit var releaseButton: Button
+    private lateinit var statusText: TextView
+    private lateinit var resultText: TextView
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        ttsEngine = AndroidTtsEngine(this)
         setContentView(createContent())
-
-        if (ContextCompat.checkSelfPermission(this, Manifest.permission.RECORD_AUDIO) !=
-            PackageManager.PERMISSION_GRANTED
-        ) {
-            ActivityCompat.requestPermissions(
-                this,
-                arrayOf(Manifest.permission.RECORD_AUDIO),
-                REQUEST_AUDIO_PERMISSION,
-            )
-        }
+        requestAudioPermissionIfNeeded()
     }
 
     private fun createContent(): ScrollView {
@@ -54,102 +44,129 @@ class MainActivity : AppCompatActivity() {
             setPadding(40, 40, 40, 40)
         }
 
-        val title = TextView(this).apply {
-            text = "Tetiruã — teste de áudio"
+        root.addView(TextView(this).apply {
+            text = "Tetiruã — Parakeet TDT STT"
             textSize = 24f
-        }
-        root.addView(title, matchParent())
+        }, matchParent())
 
-        val description = TextView(this).apply {
-            text = "Simulação: wake word → VAD → STT → resposta falada pelo TTS."
+        root.addView(TextView(this).apply {
+            text = "Branch independente: FastConformer/TDT + sherpa-onnx. Modelo multilíngue com suporte a pt. Processamento offline."
             textSize = 16f
-        }
-        root.addView(description, matchParent())
+        }, matchParent())
 
-        questionInput = EditText(this).apply {
-            hint = "Digite a resposta que deseja testar no áudio"
-            setText("Este é um teste do Tetiruã no celular.")
-            minLines = 3
-            gravity = android.view.Gravity.TOP
+        recordButton = Button(this).apply {
+            text = "Gravar 6 segundos e transcrever"
+            setOnClickListener { recordAndTranscribe() }
         }
-        root.addView(questionInput, matchParent())
+        root.addView(recordButton, matchParent())
 
-        val runButton = Button(this).apply {
-            text = "Simular wake word e falar"
-            setOnClickListener { runAudioSimulation() }
-        }
-        root.addView(runButton, matchParent())
-
-        val stopButton = Button(this).apply {
-            text = "Parar áudio"
+        releaseButton = Button(this).apply {
+            text = "Liberar modelo"
+            isEnabled = false
             setOnClickListener {
-                ttsEngine.stop()
-                statusText.text = "Estado: reprodução cancelada"
+                parakeetEngine?.release()
+                parakeetEngine = null
+                statusText.text = "Estado: modelo liberado; será carregado no próximo teste"
+                releaseButton.isEnabled = false
             }
         }
-        root.addView(stopButton, matchParent())
+        root.addView(releaseButton, matchParent())
 
         statusText = TextView(this).apply {
-            text = "Estado: LOW_POWER_LISTENING"
+            text = "Estado: aguardando microfone"
             textSize = 15f
         }
         root.addView(statusText, matchParent())
 
+        resultText = TextView(this).apply {
+            text = "Transcrição: —"
+            textSize = 18f
+            setPadding(0, 24, 0, 0)
+        }
+        root.addView(resultText, matchParent())
+
         return ScrollView(this).apply { addView(root) }
     }
 
-    private fun runAudioSimulation() {
-        val answerText = questionInput.text.toString().trim()
-        if (answerText.isEmpty()) {
-            statusText.text = "Estado: nenhuma resposta para reproduzir"
+    private fun recordAndTranscribe() {
+        if (!hasAudioPermission()) {
+            statusText.text = "Estado: permissão de microfone necessária"
+            requestAudioPermissionIfNeeded()
             return
         }
 
-        val ids = AudioIds()
-        val pipeline = AudioPipeline(
-            stt = SimulatedSttEngine(),
-            tts = ttsEngine,
-            onStateChanged = { state ->
-                runOnUiThread { statusText.text = "Estado: ${state.name}" }
-            },
-        )
-
-        statusText.text = "Estado: WAKE_WORD_CONFIRMED"
+        setBusy(true)
         activityScope.launch {
-            pipeline.transcribeAndSpeak(
-                transcriptionRequest = TranscriptionRequest(
-                    ids = ids,
-                    audioPath = "simulated://microphone/turn-${ids.turnId}",
-                    languageHint = "pt-BR",
-                ),
-                answerText = answerText,
-                synthesisRequestFactory = { requestIds, text ->
-                    SynthesisRequest(
-                        ids = requestIds,
-                        text = text,
-                        language = "pt-BR",
-                        outputMode = TtsOutputMode.PLAYBACK,
-                    )
-                },
-                onResult = { transcription, synthesis ->
-                    runOnUiThread {
-                        statusText.text = buildString {
-                            append("Estado: COMPLETED\n")
-                            append("STT: ${transcription.text}\n")
-                            append("TTS: ${synthesis.engine}")
-                            if (synthesis.warnings.isNotEmpty()) {
-                                append("\nAviso: ${synthesis.warnings.joinToString()}")
-                            }
-                        }
-                    }
-                },
+            val output = File(cacheDir, "tetirua-parakeet-${System.currentTimeMillis()}.wav")
+            try {
+                statusText.text = "Estado: gravando microfone por 6 segundos"
+                recorder.recordToWav(output)
+
+                val engine = parakeetEngine ?: ParakeetTdtSttEngine(this@MainActivity).also {
+                    parakeetEngine = it
+                }
+                statusText.text = "Estado: modelo Parakeet selecionado — ${engine.threadCount} threads"
+                statusText.text = "Estado: transcrevendo localmente, sem internet"
+
+                val result = engine.transcribe(
+                    TranscriptionRequest(
+                        ids = AudioIds(),
+                        audioPath = output.absolutePath,
+                        languageHint = "pt-BR",
+                        streaming = false,
+                    ),
+                )
+                resultText.text = "Transcrição (${result.engine}/${result.model}):\n${result.text}"
+                statusText.text = "Estado: concluído em ${result.processingTimeMs ?: 0} ms"
+            } catch (error: Exception) {
+                statusText.text = "Estado: erro — ${error.message ?: error.javaClass.simpleName}"
+                resultText.text = "Diagnóstico: confira as bibliotecas JNI, o modelo Parakeet e a memória disponível."
+            } finally {
+                output.delete()
+                setBusy(false)
+            }
+        }
+    }
+
+    private fun setBusy(busy: Boolean) {
+        recordButton.isEnabled = !busy
+        releaseButton.isEnabled = !busy && parakeetEngine != null
+    }
+
+    private fun requestAudioPermissionIfNeeded() {
+        if (!hasAudioPermission()) {
+            ActivityCompat.requestPermissions(
+                this,
+                arrayOf(Manifest.permission.RECORD_AUDIO),
+                REQUEST_AUDIO_PERMISSION,
             )
+        } else {
+            statusText.text = "Estado: pronto; modelo será carregado no primeiro teste"
+        }
+    }
+
+    private fun hasAudioPermission(): Boolean =
+        ContextCompat.checkSelfPermission(this, Manifest.permission.RECORD_AUDIO) ==
+            PackageManager.PERMISSION_GRANTED
+
+    override fun onRequestPermissionsResult(
+        requestCode: Int,
+        permissions: Array<out String>,
+        grantResults: IntArray,
+    ) {
+        super.onRequestPermissionsResult(requestCode, permissions, grantResults)
+        if (requestCode == REQUEST_AUDIO_PERMISSION) {
+            statusText.text = if (grantResults.firstOrNull() == PackageManager.PERMISSION_GRANTED) {
+                "Estado: pronto; modelo será carregado no primeiro teste"
+            } else {
+                "Estado: permissão de microfone negada"
+            }
         }
     }
 
     override fun onDestroy() {
+        parakeetEngine?.release()
         activityScope.cancel()
-        ttsEngine.release()
         super.onDestroy()
     }
 

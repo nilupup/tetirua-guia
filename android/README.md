@@ -1,63 +1,90 @@
-# Tetiruã Audio Android
+# Tetiruã Audio Android — Parakeet TDT / sherpa-onnx
 
-Este módulo é a primeira base Android/Kotlin da camada de áudio do Tetiruã. Ele separa a aplicação móvel dos adaptadores Python de pesquisa e mantém os contratos comuns de wake word, VAD, STT e TTS.
+Esta branch (`feat/stt-conformer-rnnt-sherpa-onnx`) é uma aplicação Android/Kotlin independente para testar o **Parakeet TDT v3** com o runtime **sherpa-onnx**. Ela não usa Vosk, Whisper.cpp, Moonshine, Piper ou Kokoro como runtime da demonstração.
 
-## O que já funciona no esqueleto
-
-A `MainActivity` solicita permissão de microfone, simula a ativação da wake word e reproduz texto em português brasileiro com o `AndroidTtsEngine`. O teste demonstrativo não chama LLM, VLM, GPS ou web search; ele valida apenas o caminho de áudio local:
+## O que cada nome significa
 
 ```text
-wake_word.detected → vad.speech.started → stt.final (simulado) → tts.started → tts.completed
+Parakeet TDT v3 = modelo concreto da NVIDIA
+FastConformer    = arquitetura do encoder do modelo
+TDT/transducer   = mecanismo de decodificação incremental
+sherpa-onnx      = runtime Android/Kotlin que executa os arquivos ONNX
 ```
 
-O TTS nativo não exige pesos adicionais. Para testar, abra a pasta `android/` no Android Studio, sincronize o Gradle e execute o aplicativo em um dispositivo Android ou emulador com um mecanismo de voz em português instalado.
+O modelo e o runtime ficam juntos nesta branch porque o modelo precisa de um executor para funcionar, mas são artefatos conceitualmente diferentes. O modelo Parakeet v3 listado pelo sherpa-onnx suporta 25 idiomas europeus, incluindo `pt`; a variante de português deve ser validada no Samsung, pois a documentação da NVIDIA alerta que parte dos dados pode refletir português europeu.
 
-## Situação dos motores
-
-| Motor | Papel | Caminho Android/Kotlin | Estado deste módulo |
-|---|---|---|---|
-| Moonshine | STT | Binding/runtime nativo a validar | Catálogo e contrato preparados; adaptador específico será implementado na branch `feat/stt-moonshine`. |
-| whisper.cpp | STT | JNI/binding Java/Kotlin e modelo local | Catálogo e contrato preparados; adaptador específico será implementado na branch `feat/stt-whisper-cpp-tflite`. |
-| Android TTS | TTS | API nativa `android.speech.tts.TextToSpeech` | Adaptador funcional inicial em `tts/AndroidTtsEngine.kt`. |
-| AVSpeechSynthesizer | TTS | Apenas iOS; não pertence ao módulo Android | Mantido na documentação multiplataforma. |
-| Kokoro-82M | TTS | Runtime ONNX/sherpa-onnx, não Python direto | Catálogo e contrato preparados; runtime Android será validado na branch `feat/tts-kokoro-82m`. |
-| Piper + sherpa-onnx | TTS | APIs Kotlin/Java e bibliotecas nativas por ABI | Catálogo e contrato preparados; integração será implementada na branch `feat/tts-piper-sherpa-onnx`. |
-| Wake word/KWS | Ativação | `KeywordSpotter` via sherpa-onnx ou motor dedicado | Contrato preparado; motor definitivo será comparado separadamente. |
-| VAD | Delimitação da fala | `Vad` via sherpa-onnx ou modelo compatível | Contrato preparado; simulador e integração real serão separados. |
-
-## Modelos e bibliotecas
-
-Pesos de modelos, arquivos ONNX, arquivos Piper, modelos Whisper, modelos Moonshine, vozes e bibliotecas nativas `.so` não devem ser enviados ao Git por padrão. O projeto deve versionar:
-
-1. contratos e adaptadores Kotlin;
-2. configuração de modelo;
-3. scripts ou instruções de download;
-4. hashes e versões esperadas;
-5. testes sem pesos grandes;
-6. documentação de licença e redistribuição.
-
-Para sherpa-onnx, a documentação oficial descreve bibliotecas Android pré-compiladas ou build com NDK e arquivos nativos organizados por ABI. A integração inicial deverá registrar a versão exata utilizada e manter os binários em uma etapa de empacotamento, não misturados ao código-fonte.
-
-## Execução
-
-No Android Studio:
+## Fluxo desta branch
 
 ```text
-Open -> /home/ubuntu/tetirua-guia/android
-Sync Project with Gradle Files
-Run app
+microfone Android
+    ↓
+PCM mono 16 kHz / WAV temporário
+    ↓
+FloatArray normalizado
+    ↓
+sherpa-onnx OfflineRecognizer
+    ↓
+Parakeet TDT v3 INT8: encoder + decoder + joiner
+    ↓
+TranscriptionResult em pt
 ```
 
-Para usar a aplicação em dispositivo físico, habilite a depuração USB e aceite a permissão de microfone. Para testar o TTS, use o botão `Simular wake word e falar`. A etapa inicial não grava áudio nem envia dados para a internet.
+A Activity grava seis segundos apenas para criar um baseline comum. A integração de produção deverá trocar essa captura fixa por VAD e, posteriormente, por reconhecimento streaming.
 
-## Próximas branches
+## Runtime e modelo
 
-A base comum deve ser levada para as cinco branches de solução, mas os adaptadores específicos devem ser desenvolvidos separadamente:
+| Item | Valor |
+|---|---|
+| Modelo | `sherpa-onnx-nemo-parakeet-tdt-0.6b-v3-int8` |
+| Família | FastConformer/TDT/transducer |
+| Idiomas | 25 idiomas europeus, incluindo `pt` |
+| Tamanho aproximado | 640 MB descompactado |
+| Runtime | sherpa-onnx Android `v1.13.6` |
+| ABI inicial | `arm64-v8a` para o Samsung SM-S921B |
+| Provider | CPU |
+| Threads iniciais | 2 |
+| Modelo local | `android/local-models/parakeet/` |
+| JNI local | `android/local-native-libs/jniLibs/` |
+| Política | ONNX, `.so`, ZIP, APK e modelos ficam fora do Git |
 
-- `feat/stt-moonshine`;
-- `feat/stt-whisper-cpp-tflite`;
-- `feat/tts-native`;
-- `feat/tts-kokoro-82m`;
-- `feat/tts-piper-sherpa-onnx`.
+Os arquivos esperados do modelo são `encoder.int8.onnx`, `decoder.int8.onnx`, `joiner.int8.onnx` e `tokens.txt`. As bibliotecas JNI incluem `libonnxruntime.so`, `libsherpa-onnx-jni.so`, `libsherpa-onnx-c-api.so` e `libsherpa-onnx-cxx-api.so`.
 
-Cada branch deverá conter teste, instrução de instalação, modelo compatível, benchmark e limitações. Nenhuma branch deve fazer merge na `main` antes da análise do Henrique e da comparação com as demais alternativas.
+## Como configurar
+
+Na raiz do repositório:
+
+```bash
+git checkout feat/stt-conformer-rnnt-sherpa-onnx
+git pull --ff-only origin feat/stt-conformer-rnnt-sherpa-onnx
+bash android/scripts/fetch-sherpa-onnx-android.sh
+bash android/scripts/fetch-parakeet-tdt-v3.sh
+```
+
+O primeiro script baixa e valida as bibliotecas Android do sherpa-onnx por SHA-256. O segundo baixa o pacote oficial de modelo Parakeet TDT v3 INT8, com aproximadamente 640 MB. Nenhum desses arquivos deve ser adicionado com `git add`.
+
+Abra a pasta `android/` no Android Studio, sincronize o Gradle, execute **Build > Clean Project**, depois **Build > Assemble Project** e clique em **Run** no Samsung. O processamento é local e não depende de Internet depois que o modelo e o runtime foram instalados.
+
+## Teste comparativo
+
+Use as mesmas frases testadas na branch Vosk:
+
+```text
+Olá, eu sou Fernando.
+Tetiruã, explique este monumento.
+```
+
+Registre a transcrição, o tempo após a gravação, o tempo da primeira execução, o tempo da segunda execução sem liberar o modelo e qualquer erro de memória. A comparação precisa considerar também que o Parakeet é muito maior que o Vosk pequeno.
+
+## Limitações e riscos
+
+O principal risco desta branch é o consumo de memória e o tempo de carregamento do encoder INT8, que tem centenas de megabytes. O fato de o catálogo listar `pt` não garante a mesma qualidade em português brasileiro observada em português europeu. O modelo também é offline, mas não é uma solução leve como Vosk.
+
+VAD e wake word “Tetiruã” ainda não estão integrados. O sherpa-onnx possui APIs que poderão ser usadas em uma etapa posterior, mas esta branch inicial mede somente o STT para que o benchmark permaneça isolado.
+
+## Referências
+
+- [Parakeet TDT v3 no catálogo sherpa-onnx](https://k2-fsa.github.io/sherpa/onnx/pretrained_models/offline-transducer/nemo-transducer-models.html)
+- [Android sherpa-onnx](https://k2-fsa.github.io/sherpa/onnx/android/)
+- [API Kotlin oficial](https://github.com/k2-fsa/sherpa-onnx/tree/master/sherpa-onnx/kotlin-api)
+- [Model card NVIDIA Parakeet TDT v3](https://huggingface.co/nvidia/parakeet-tdt-0.6b-v3)
+- [Release das bibliotecas Android](https://github.com/k2-fsa/sherpa-onnx/releases/tag/v1.13.6)

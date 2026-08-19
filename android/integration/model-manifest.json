@@ -1,0 +1,59 @@
+{
+  "schemaVersion": "1.0",
+  "branch": "feat/stt-conformer-rnnt-sherpa-onnx",
+  "activeModel": {
+    "id": "sherpa-onnx-nemo-parakeet-tdt-0.6b-v3-int8",
+    "role": "STT",
+    "family": "FastConformer encoder + TDT/transducer decoder",
+    "runtime": "sherpa-onnx Android v1.13.6",
+    "languages": ["pt", "en", "es", "fr", "de", "it", "ru", "uk"],
+    "files": [
+      {
+        "name": "encoder.int8.onnx",
+        "destination": "android/local-models/parakeet/sherpa-onnx-nemo-parakeet-tdt-0.6b-v3-int8/",
+        "sizeBytes": null,
+        "sha256": null
+      },
+      {
+        "name": "decoder.int8.onnx",
+        "destination": "android/local-models/parakeet/sherpa-onnx-nemo-parakeet-tdt-0.6b-v3-int8/",
+        "sizeBytes": null,
+        "sha256": null
+      },
+      {
+        "name": "joiner.int8.onnx",
+        "destination": "android/local-models/parakeet/sherpa-onnx-nemo-parakeet-tdt-0.6b-v3-int8/",
+        "sizeBytes": null,
+        "sha256": null
+      },
+      {
+        "name": "tokens.txt",
+        "destination": "android/local-models/parakeet/sherpa-onnx-nemo-parakeet-tdt-0.6b-v3-int8/",
+        "sizeBytes": null,
+        "sha256": null
+      }
+    ],
+    "approximatePackageSize": "640 MB",
+    "sourceUrl": "https://github.com/k2-fsa/sherpa-onnx/releases/download/asr-models/sherpa-onnx-nemo-parakeet-tdt-0.6b-v3-int8.tar.bz2",
+    "modelCardUrl": "https://huggingface.co/nvidia/parakeet-tdt-0.6b-v3",
+    "license": "CC BY 4.0 no model card NVIDIA; confirmar notices do runtime antes da redistribuição",
+    "weightsInGit": false
+  },
+  "runtime": {
+    "version": "v1.13.6",
+    "archive": "sherpa-onnx-v1.13.6-android.tar.bz2",
+    "sha256": "bb7f891b259f4faee5c55d4cc10d79a3ba2b27416e9320d2c4d044400834d75b",
+    "jniSourceDir": "android/local-native-libs/jniLibs",
+    "abiTestTarget": "arm64-v8a",
+    "provider": "cpu",
+    "numThreads": 2
+  },
+  "codeEntryPoints": [
+    "android/app/src/main/java/br/com/tetirua/audio/stt/ParakeetTdtSttEngine.kt",
+    "android/app/src/main/java/br/com/tetirua/audio/stt/ParakeetAudioRecorder.kt",
+    "android/app/src/main/java/br/com/tetirua/audio/stt/ParakeetPcmWavReader.kt",
+    "android/app/src/main/java/com/k2fsa/sherpa/onnx/OfflineRecognizer.kt",
+    "android/app/src/main/java/com/k2fsa/sherpa/onnx/OfflineStream.kt"
+  ],
+  "artifactPolicy": "Não versionar ONNX, ZIP, bibliotecas .so, APKs ou diretórios locais de modelo. Usar os scripts de download verificado."
+}

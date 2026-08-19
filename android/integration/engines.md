@@ -1,95 +1,102 @@
-# Integração dos engines no Android
+# Integração Parakeet TDT / sherpa-onnx no Android
 
-## Princípio
+## Separação conceitual
 
-O aplicativo Kotlin depende apenas dos contratos em `core/`. Cada engine implementa `SpeechToTextEngine` ou `TextToSpeechEngine` por meio de um runtime que pode ser nativo, JNI, ONNX ou uma API da plataforma.
+Esta branch contém três camadas relacionadas, mas independentes:
 
-| Engine | Runtime Android | Integração | Dependência de modelo |
-|---|---|---|---|
-| Moonshine | sherpa-onnx ou binding próprio | Preferir wrapper do runtime e manter `MoonshineSttEngine` atrás de `NativeSttRuntime`. | Modelos Moonshine v2 e tokens/configuração correspondentes. |
-| whisper.cpp | C/C++ + JNI/Java | Usar o binding Android/Java oficial ou uma camada JNI controlada. | Modelo Whisper `.bin`/formato suportado, fora do Git. |
-| TFLite | TensorFlow Lite/ONNX conforme conversão | Implementar runtime separado, mantendo o mesmo `NativeSttRuntime`. | Arquivos `.tflite` e metadados, fora do Git. |
-| Android TTS | `android.speech.tts.TextToSpeech` | Já existe em `tts/AndroidTtsEngine.kt`. | Nenhum peso obrigatório; depende das vozes instaladas no dispositivo. |
-| AVSpeechSynthesizer | API nativa iOS | Não pertence ao módulo Android; permanece no contrato multiplataforma. | Vozes da plataforma iOS. |
-| Kokoro-82M | sherpa-onnx `OfflineTts`/ONNX | Usar `OfflineTtsKokoroModelConfig` e encapsular geração de `GeneratedAudio`. | Modelo Kokoro, vozes, tokens e dados auxiliares. |
-| Piper+sherpa-onnx | sherpa-onnx `OfflineTts`/VITS | Usar configuração VITS e encapsular o WAV ou stream produzido. | Modelo Piper, `tokens.txt`, vocabulário/lexicon quando necessário. |
-| Wake word | sherpa-onnx `KeywordSpotter` | Implementar adapter que converte `KeywordSpotterResult` em `WakeWordResult`. | Modelo KWS e arquivo de keywords. |
-| VAD | sherpa-onnx `Vad` | Implementar adapter que alimenta `acceptWaveform` e converte segmentos em eventos. | `silero_vad.onnx` ou outro modelo VAD compatível. |
+| Camada | Componente | Responsabilidade |
+|---|---|---|
+| Modelo | Parakeet TDT v3 INT8 | Pesos ONNX do FastConformer/TDT treinado para reconhecimento multilíngue. |
+| Runtime | sherpa-onnx Android v1.13.6 | Executa encoder, decoder e joiner no CPU do telefone. |
+| Adaptador | `ParakeetTdtSttEngine` | Converte WAV/PCM para a API Kotlin e retorna `TranscriptionResult`. |
 
-## Integração com sherpa-onnx
+O runtime sherpa-onnx é exclusivo desta branch. Não é uma dependência compartilhada com a branch Piper/TTS ou com Vosk.
 
-A documentação Kotlin oficial do sherpa-onnx fornece classes para `OfflineRecognizer`, `OfflineTts`, `Vad` e `KeywordSpotter`. A aplicação deve copiar ou depender da API Kotlin e distribuir as bibliotecas nativas por ABI:
+## Arquivos nativos
+
+O script `android/scripts/fetch-sherpa-onnx-android.sh` instala, em `android/local-native-libs/jniLibs`, os arquivos oficiais por ABI:
 
 ```text
-app/src/main/jniLibs/arm64-v8a/libonnxruntime.so
-app/src/main/jniLibs/arm64-v8a/libsherpa-onnx-jni.so
+arm64-v8a/libonnxruntime.so
+arm64-v8a/libsherpa-onnx-jni.so
+arm64-v8a/libsherpa-onnx-c-api.so
+arm64-v8a/libsherpa-onnx-cxx-api.so
 ```
 
-Para emulador, pode ser necessário preparar também `x86_64`. A versão das bibliotecas deve ser registrada no README e mantida igual à versão dos arquivos Kotlin/API utilizados.
-
-### Kokoro via sherpa-onnx
-
-A configuração deve seguir a ideia abaixo, com os nomes reais dos arquivos fornecidos pelo pacote de modelo escolhido:
+A versão inicial mantém também as outras ABIs no diretório local, mas o primeiro dispositivo-alvo é `arm64-v8a`. O Gradle inclui o diretório com:
 
 ```kotlin
-val config = OfflineTtsConfig(
-    model = OfflineTtsModelConfig(
-        kokoro = OfflineTtsKokoroModelConfig(
-            model = "$modelDir/model.onnx",
-            voices = "$modelDir/voices.bin",
-            tokens = "$modelDir/tokens.txt",
-            dataDir = "$modelDir/espeak-ng-data",
-            lexicon = "$modelDir/lexicon-us-en.txt",
-        ),
-        numThreads = 4,
-        provider = "cpu",
-    ),
-)
-val tts = OfflineTts(assetManager, config)
-val generated = tts.generate(text, sid = voiceId, speed = speed)
-generated.save(outputPath)
+sourceSets {
+    getByName("main") {
+        jniLibs.srcDir("../local-native-libs/jniLibs")
+        assets.srcDir("../local-models/parakeet")
+    }
+}
 ```
 
-Os nomes e caminhos devem ser conferidos contra o pacote de modelo escolhido. Não devemos colocar esses arquivos grandes no Git apenas para fazer o exemplo compilar.
+Nenhum `.so` é versionado.
 
-### Piper via sherpa-onnx
+## API Kotlin
 
-Para Piper, a configuração normalmente utiliza a família VITS do `OfflineTts`:
+A branch mantém os arquivos oficiais necessários da API Kotlin do sherpa-onnx com o cabeçalho de licença upstream:
+
+```text
+com/k2fsa/sherpa/onnx/FeatureConfig.kt
+com/k2fsa/sherpa/onnx/HomophoneReplacerConfig.kt
+com/k2fsa/sherpa/onnx/OfflineRecognizer.kt
+com/k2fsa/sherpa/onnx/OfflineStream.kt
+com/k2fsa/sherpa/onnx/QnnConfig.kt
+```
+
+A configuração do Parakeet é:
 
 ```kotlin
-val config = OfflineTtsConfig(
-    model = OfflineTtsModelConfig(
-        vits = OfflineTtsVitsModelConfig(
-            model = "$modelDir/model.onnx",
-            tokens = "$modelDir/tokens.txt",
-            lexicon = "$modelDir/lexicon.txt",
-            dataDir = "$modelDir/espeak-ng-data",
+OfflineRecognizerConfig(
+    featConfig = FeatureConfig(sampleRate = 16_000),
+    modelConfig = OfflineModelConfig(
+        transducer = OfflineTransducerModelConfig(
+            encoder = "$modelDir/encoder.int8.onnx",
+            decoder = "$modelDir/decoder.int8.onnx",
+            joiner = "$modelDir/joiner.int8.onnx",
         ),
+        tokens = "$modelDir/tokens.txt",
         numThreads = 2,
         provider = "cpu",
+        modelType = "nemo_transducer",
     ),
 )
 ```
 
-O pacote Piper selecionado precisa ser compatível com o runtime e com o idioma desejado. O adaptador não deve presumir que toda voz Piper suporta `pt-BR`.
+O áudio é convertido para `FloatArray` normalizado entre aproximadamente `-1.0` e `1.0`, enviado por `OfflineStream.acceptWaveform`, decodificado com `OfflineRecognizer.decode` e lido com `getResult`.
 
-### Moonshine e Whisper via sherpa-onnx
+## Modelo Parakeet TDT v3
 
-A API oficial do `OfflineRecognizer` possui configurações para Whisper e Moonshine. Para Moonshine v2, o catálogo oficial descreve encoder e decoder mesclado; a estrutura exata dos arquivos deve seguir o pacote do modelo. Para Whisper, o adaptador deve informar idioma e tarefa de transcrição:
+O modelo oficial do sherpa-onnx é baixado por `android/scripts/fetch-parakeet-tdt-v3.sh` e deve conter:
 
-```kotlin
-val whisperConfig = OfflineWhisperModelConfig(
-    encoder = "$modelDir/encoder.onnx",
-    decoder = "$modelDir/decoder.onnx",
-    language = "pt",
-    task = "transcribe",
-)
+```text
+sherpa-onnx-nemo-parakeet-tdt-0.6b-v3-int8/
+├── encoder.int8.onnx
+├── decoder.int8.onnx
+├── joiner.int8.onnx
+├── tokens.txt
+└── test_wavs/
 ```
 
-O resultado de `OfflineRecognizer` é convertido para `TranscriptionResult`. O orquestrador não recebe objetos do sherpa-onnx diretamente.
+O encoder é o maior arquivo, com aproximadamente 622 MB segundo a documentação do sherpa-onnx. O pacote inteiro tem aproximadamente 640 MB. Esses pesos ficam em `android/local-models/parakeet/`, são ignorados pelo Git e não entram em commits.
 
-## O que ainda precisa ser implementado em cada branch
+## Benchmark
 
-A base comum já contém contratos, catálogo, pipeline, TTS Android funcional e adapters por porta. Cada branch de engine deve substituir a porta genérica pelo runtime concreto, adicionar os arquivos de configuração necessários, documentar o download do modelo e fornecer pelo menos um teste em aparelho ou emulador.
+A Activity grava seis segundos como baseline, mas mede separadamente o trecho após a captura. A primeira execução inclui a criação do `OfflineRecognizer` e o carregamento dos arquivos ONNX; a segunda execução, sem liberar o modelo, é a medida mais próxima do custo de inferência aquecida.
 
-A ausência de pesos ou bibliotecas nativas nesta primeira publicação é intencional. Isso mantém o repositório leve, evita problemas de licença e permite que cada colaborador escolha a variante de modelo sem duplicar artefatos grandes.
+O benchmark precisa registrar transcrição, tempo de carregamento, tempo de inferência, tempo total, número de threads, memória e eventuais erros de alocação. A comparação direta com Vosk deve informar que o Parakeet usa aproximadamente 640 MB contra aproximadamente 31 MB do modelo Vosk pequeno.
+
+## Próximas extensões
+
+O runtime possui caminhos oficiais para VAD, reconhecimento streaming/simulated streaming e keyword spotting. Eles não são ativados nesta primeira implementação, pois o objetivo é comparar o STT puro. A wake word “Tetiruã” e o VAD serão adicionados posteriormente como componentes desta branch ou avaliados em branches próprias, conforme a decisão arquitetural do projeto.
+
+## Referências
+
+- [Documentação oficial do modelo Parakeet TDT v3](https://k2-fsa.github.io/sherpa/onnx/pretrained_models/offline-transducer/nemo-transducer-models.html)
+- [Documentação Android sherpa-onnx](https://k2-fsa.github.io/sherpa/onnx/android/)
+- [API Kotlin oficial](https://github.com/k2-fsa/sherpa-onnx/tree/master/sherpa-onnx/kotlin-api)
+- [Repositório Android oficial](https://github.com/k2-fsa/sherpa-onnx/tree/master/android)

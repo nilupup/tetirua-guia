@@ -43,6 +43,15 @@ object ModelCatalog {
             artifactPolicy = "modelo local fora do Git",
         ),
         ModelOption(
+            id = "parakeet-tdt-sherpa-onnx",
+            role = AudioRole.STT,
+            runtime = "sherpa-onnx Android + OfflineRecognizer",
+            platformStatus = "implementado nesta branch arm64-v8a",
+            modelHint = "Parakeet TDT v3 INT8, FastConformer/TDT, 25 idiomas incluindo pt",
+            sourceUrl = "https://k2-fsa.github.io/sherpa/onnx/pretrained_models/offline-transducer/nemo-transducer-models.html",
+            artifactPolicy = "modelo ONNX e bibliotecas JNI fora do Git",
+        ),
+        ModelOption(
             id = "tts-native",
             role = AudioRole.TTS,
             runtime = "Android TextToSpeech / AVSpeechSynthesizer",
