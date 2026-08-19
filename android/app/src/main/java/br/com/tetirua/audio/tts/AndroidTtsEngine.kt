@@ -16,7 +16,10 @@ import java.util.Locale
  * Ele cobre o primeiro caminho funcional de reprodução no celular. Os motores
  * neurais continuam usando a mesma interface TextToSpeechEngine.
  */
-class AndroidTtsEngine(context: Context) : TextToSpeechEngine, TextToSpeech.OnInitListener {
+class AndroidTtsEngine(
+    context: Context,
+    private val onReadyChanged: (Boolean) -> Unit = {},
+) : TextToSpeechEngine, TextToSpeech.OnInitListener {
     private val textToSpeech = TextToSpeech(context.applicationContext, this)
     @Volatile
     private var ready = false
@@ -26,7 +29,10 @@ class AndroidTtsEngine(context: Context) : TextToSpeechEngine, TextToSpeech.OnIn
         if (ready) {
             textToSpeech.language = Locale.forLanguageTag("pt-BR")
         }
+        onReadyChanged(ready)
     }
+
+    fun isReady(): Boolean = ready
 
     override fun speak(request: SynthesisRequest, onComplete: (SynthesisResult) -> Unit) {
         if (!ready) {

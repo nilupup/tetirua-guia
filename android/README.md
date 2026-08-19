@@ -1,63 +1,39 @@
-# Tetiruã Audio Android
+# Tetiruã Audio Android — branch Android TTS nativo
 
-Este módulo é a primeira base Android/Kotlin da camada de áudio do Tetiruã. Ele separa a aplicação móvel dos adaptadores Python de pesquisa e mantém os contratos comuns de wake word, VAD, STT e TTS.
+Esta branch é uma aplicação Android/Kotlin independente para testar a API de plataforma `android.speech.tts.TextToSpeech`. Ela não usa pesos neurais, sherpa-onnx, Whisper.cpp, Moonshine, Kokoro ou Piper.
 
-## O que já funciona no esqueleto
+## O que a aplicação demonstra
 
-A `MainActivity` solicita permissão de microfone, simula a ativação da wake word e reproduz texto em português brasileiro com o `AndroidTtsEngine`. O teste demonstrativo não chama LLM, VLM, GPS ou web search; ele valida apenas o caminho de áudio local:
+A `MainActivity` recebe o texto produzido pelo orquestrador, solicita voz `pt-BR`, reproduz a resposta no alto-falante ou sintetiza um WAV no cache e exibe na tela o engine, idioma, arquivo e estado:
 
 ```text
-wake_word.detected → vad.speech.started → stt.final (simulado) → tts.started → tts.completed
+texto do orquestrador → Android TextToSpeech → playback ou WAV
 ```
 
-O TTS nativo não exige pesos adicionais. Para testar, abra a pasta `android/` no Android Studio, sincronize o Gradle e execute o aplicativo em um dispositivo Android ou emulador com um mecanismo de voz em português instalado.
+A branch não pede permissão de microfone porque sua responsabilidade é somente TTS. Captura STT, wake word e VAD continuam sendo avaliadas nas branches próprias.
 
-## Situação dos motores
+## Dependência de voz
 
-| Motor | Papel | Caminho Android/Kotlin | Estado deste módulo |
-|---|---|---|---|
-| Moonshine | STT | Binding/runtime nativo a validar | Catálogo e contrato preparados; adaptador específico será implementado na branch `feat/stt-moonshine`. |
-| whisper.cpp | STT | JNI/binding Java/Kotlin e modelo local | Catálogo e contrato preparados; adaptador específico será implementado na branch `feat/stt-whisper-cpp-tflite`. |
-| Android TTS | TTS | API nativa `android.speech.tts.TextToSpeech` | Adaptador funcional inicial em `tts/AndroidTtsEngine.kt`. |
-| AVSpeechSynthesizer | TTS | Apenas iOS; não pertence ao módulo Android | Mantido na documentação multiplataforma. |
-| Kokoro-82M | TTS | Runtime ONNX/sherpa-onnx, não Python direto | Catálogo e contrato preparados; runtime Android será validado na branch `feat/tts-kokoro-82m`. |
-| Piper + sherpa-onnx | TTS | APIs Kotlin/Java e bibliotecas nativas por ABI | Catálogo e contrato preparados; integração será implementada na branch `feat/tts-piper-sherpa-onnx`. |
-| Wake word/KWS | Ativação | `KeywordSpotter` via sherpa-onnx ou motor dedicado | Contrato preparado; motor definitivo será comparado separadamente. |
-| VAD | Delimitação da fala | `Vad` via sherpa-onnx ou modelo compatível | Contrato preparado; simulador e integração real serão separados. |
-
-## Modelos e bibliotecas
-
-Pesos de modelos, arquivos ONNX, arquivos Piper, modelos Whisper, modelos Moonshine, vozes e bibliotecas nativas `.so` não devem ser enviados ao Git por padrão. O projeto deve versionar:
-
-1. contratos e adaptadores Kotlin;
-2. configuração de modelo;
-3. scripts ou instruções de download;
-4. hashes e versões esperadas;
-5. testes sem pesos grandes;
-6. documentação de licença e redistribuição.
-
-Para sherpa-onnx, a documentação oficial descreve bibliotecas Android pré-compiladas ou build com NDK e arquivos nativos organizados por ABI. A integração inicial deverá registrar a versão exata utilizada e manter os binários em uma etapa de empacotamento, não misturados ao código-fonte.
+A qualidade e a disponibilidade do português dependem do mecanismo TTS instalado no aparelho ou emulador. Se o dispositivo não tiver dados de voz pt-BR, o adaptador devolve um aviso `LANG_MISSING_DATA`/`LANG_NOT_SUPPORTED` no `SynthesisResult`; a aplicação não baixa vozes automaticamente.
 
 ## Execução
 
-No Android Studio:
+Abra `android/` no Android Studio, copie `android/local.properties.example` para `android/local.properties` se necessário, ajuste o caminho do SDK e execute o módulo `app`. Em um dispositivo físico, instale ou habilite uma voz brasileira nas configurações de síntese de fala do Android antes do teste.
 
-```text
-Open -> /home/ubuntu/tetirua-guia/android
-Sync Project with Gradle Files
-Run app
-```
+Esta branch não precisa de scripts de modelo, bibliotecas `.so`, NDK ou assets externos. O build remoto continua limitado pela ausência de Android SDK no ambiente de desenvolvimento desta tarefa; a confirmação final do APK deve ser feita em uma máquina com Android Studio.
 
-Para usar a aplicação em dispositivo físico, habilite a depuração USB e aceite a permissão de microfone. Para testar o TTS, use o botão `Simular wake word e falar`. A etapa inicial não grava áudio nem envia dados para a internet.
+## Estrutura
 
-## Próximas branches
+| Arquivo | Responsabilidade |
+|---|---|
+| `app/src/main/java/br/com/tetirua/audio/tts/AndroidTtsEngine.kt` | Adaptador da API nativa, seleção de idioma/voz, playback e `synthesizeToFile`. |
+| `app/src/main/java/br/com/tetirua/audio/MainActivity.kt` | Tela independente de playback e geração de WAV. |
+| `app/src/main/AndroidManifest.xml` | Activity sem permissão de microfone. |
 
-A base comum deve ser levada para as cinco branches de solução, mas os adaptadores específicos devem ser desenvolvidos separadamente:
+## Referências
 
-- `feat/stt-moonshine`;
-- `feat/stt-whisper-cpp-tflite`;
-- `feat/tts-native`;
-- `feat/tts-kokoro-82m`;
-- `feat/tts-piper-sherpa-onnx`.
+A implementação usa a documentação oficial de [TextToSpeech](https://developer.android.com/reference/android/speech/tts/TextToSpeech), [UtteranceProgressListener](https://developer.android.com/reference/android/speech/tts/UtteranceProgressListener) e [synthesizeToFile](https://developer.android.com/reference/android/speech/tts/TextToSpeech#synthesizeToFile(java.lang.CharSequence,%20android.os.Bundle,%20java.io.File,%20java.lang.String)).
 
-Cada branch deverá conter teste, instrução de instalação, modelo compatível, benchmark e limitações. Nenhuma branch deve fazer merge na `main` antes da análise do Henrique e da comparação com as demais alternativas.
+## Independência de branches
+
+Para testar Piper, Kokoro, Moonshine ou Whisper, troque para a branch correspondente. Esta branch não deve receber bibliotecas nativas ou modelos dessas alternativas e não deve ser mesclada à `main` sem aprovação do Henrique.

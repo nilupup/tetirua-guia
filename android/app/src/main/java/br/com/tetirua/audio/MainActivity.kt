@@ -1,7 +1,5 @@
 package br.com.tetirua.audio
 
-import android.Manifest
-import android.content.pm.PackageManager
 import android.os.Bundle
 import android.view.ViewGroup
 import android.widget.Button
@@ -10,42 +8,37 @@ import android.widget.LinearLayout
 import android.widget.ScrollView
 import android.widget.TextView
 import androidx.appcompat.app.AppCompatActivity
-import androidx.core.app.ActivityCompat
-import androidx.core.content.ContextCompat
 import br.com.tetirua.audio.core.AudioIds
-import br.com.tetirua.audio.core.AudioPipeline
-import br.com.tetirua.audio.core.AudioPipelineState
 import br.com.tetirua.audio.core.SynthesisRequest
-import br.com.tetirua.audio.core.TranscriptionRequest
 import br.com.tetirua.audio.core.TtsOutputMode
-import br.com.tetirua.audio.stt.SimulatedSttEngine
 import br.com.tetirua.audio.tts.AndroidTtsEngine
-import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.SupervisorJob
-import kotlinx.coroutines.cancel
-import kotlinx.coroutines.launch
+import java.io.File
 
+/** Aplicação demonstrativa somente da API nativa Android TextToSpeech. */
 class MainActivity : AppCompatActivity() {
-    private lateinit var ttsEngine: AndroidTtsEngine
+    private lateinit var engine: AndroidTtsEngine
     private lateinit var statusText: TextView
-    private lateinit var questionInput: EditText
-    private val activityScope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
+    private lateinit var resultText: TextView
+    private lateinit var input: EditText
+    private lateinit var speakButton: Button
+    private lateinit var fileButton: Button
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        ttsEngine = AndroidTtsEngine(this)
-        setContentView(createContent())
-
-        if (ContextCompat.checkSelfPermission(this, Manifest.permission.RECORD_AUDIO) !=
-            PackageManager.PERMISSION_GRANTED
-        ) {
-            ActivityCompat.requestPermissions(
-                this,
-                arrayOf(Manifest.permission.RECORD_AUDIO),
-                REQUEST_AUDIO_PERMISSION,
-            )
+        engine = AndroidTtsEngine(this) { ready ->
+            runOnUiThread {
+                if (::statusText.isInitialized) {
+                    speakButton.isEnabled = ready
+                    fileButton.isEnabled = ready
+                    statusText.text = if (ready) {
+                        "Estado: Android TTS pronto; voz pt-BR solicitada"
+                    } else {
+                        "Estado: mecanismo Android TTS indisponível"
+                    }
+                }
+            }
         }
+        setContentView(createContent())
     }
 
     private fun createContent(): ScrollView {
@@ -54,43 +47,54 @@ class MainActivity : AppCompatActivity() {
             setPadding(40, 40, 40, 40)
         }
 
-        val title = TextView(this).apply {
-            text = "Tetiruã — teste de áudio"
+        root.addView(TextView(this).apply {
+            text = "Tetiruã — Android TTS nativo"
             textSize = 24f
-        }
-        root.addView(title, matchParent())
-
-        val description = TextView(this).apply {
-            text = "Simulação: wake word → VAD → STT → resposta falada pelo TTS."
+        }, matchParent())
+        root.addView(TextView(this).apply {
+            text = "Branch independente sem pesos ou bibliotecas externas. Usa android.speech.tts.TextToSpeech, mostra o resultado na tela e pode gerar um WAV no cache."
             textSize = 16f
-        }
-        root.addView(description, matchParent())
+        }, matchParent())
 
-        questionInput = EditText(this).apply {
-            hint = "Digite a resposta que deseja testar no áudio"
-            setText("Este é um teste do Tetiruã no celular.")
-            minLines = 3
+        input = EditText(this).apply {
+            hint = "Texto em português brasileiro"
+            setText("Olá. Este é um teste do Tetiruã usando o mecanismo nativo do Android.")
+            minLines = 4
             gravity = android.view.Gravity.TOP
         }
-        root.addView(questionInput, matchParent())
+        root.addView(input, matchParent())
 
-        val runButton = Button(this).apply {
-            text = "Simular wake word e falar"
-            setOnClickListener { runAudioSimulation() }
+        speakButton = Button(this).apply {
+            text = "Falar resposta"
+            isEnabled = false
+            setOnClickListener { speak(playback = true) }
         }
-        root.addView(runButton, matchParent())
+        root.addView(speakButton, matchParent())
 
-        val stopButton = Button(this).apply {
+        fileButton = Button(this).apply {
+            text = "Gerar WAV no cache"
+            isEnabled = false
+            setOnClickListener { speak(playback = false) }
+        }
+        root.addView(fileButton, matchParent())
+
+        root.addView(Button(this).apply {
             text = "Parar áudio"
             setOnClickListener {
-                ttsEngine.stop()
-                statusText.text = "Estado: reprodução cancelada"
+                engine.stop()
+                statusText.text = "Estado: reprodução parada"
             }
+        }, matchParent())
+
+        resultText = TextView(this).apply {
+            text = "Resultado: —"
+            textSize = 15f
+            setPadding(0, 24, 0, 12)
         }
-        root.addView(stopButton, matchParent())
+        root.addView(resultText, matchParent())
 
         statusText = TextView(this).apply {
-            text = "Estado: LOW_POWER_LISTENING"
+            text = "Estado: inicializando mecanismo Android TTS"
             textSize = 15f
         }
         root.addView(statusText, matchParent())
@@ -98,58 +102,49 @@ class MainActivity : AppCompatActivity() {
         return ScrollView(this).apply { addView(root) }
     }
 
-    private fun runAudioSimulation() {
-        val answerText = questionInput.text.toString().trim()
-        if (answerText.isEmpty()) {
-            statusText.text = "Estado: nenhuma resposta para reproduzir"
+    private fun speak(playback: Boolean) {
+        val text = input.text.toString().trim()
+        if (text.isEmpty()) {
+            statusText.text = "Estado: informe um texto"
             return
         }
 
-        val ids = AudioIds()
-        val pipeline = AudioPipeline(
-            stt = SimulatedSttEngine(),
-            tts = ttsEngine,
-            onStateChanged = { state ->
-                runOnUiThread { statusText.text = "Estado: ${state.name}" }
-            },
-        )
-
-        statusText.text = "Estado: WAKE_WORD_CONFIRMED"
-        activityScope.launch {
-            pipeline.transcribeAndSpeak(
-                transcriptionRequest = TranscriptionRequest(
-                    ids = ids,
-                    audioPath = "simulated://microphone/turn-${ids.turnId}",
-                    languageHint = "pt-BR",
-                ),
-                answerText = answerText,
-                synthesisRequestFactory = { requestIds, text ->
-                    SynthesisRequest(
-                        ids = requestIds,
-                        text = text,
-                        language = "pt-BR",
-                        outputMode = TtsOutputMode.PLAYBACK,
-                    )
-                },
-                onResult = { transcription, synthesis ->
-                    runOnUiThread {
-                        statusText.text = buildString {
-                            append("Estado: COMPLETED\n")
-                            append("STT: ${transcription.text}\n")
-                            append("TTS: ${synthesis.engine}")
-                            if (synthesis.warnings.isNotEmpty()) {
-                                append("\nAviso: ${synthesis.warnings.joinToString()}")
-                            }
-                        }
+        speakButton.isEnabled = false
+        fileButton.isEnabled = false
+        statusText.text = if (playback) "Estado: falando" else "Estado: sintetizando WAV"
+        val output = File(cacheDir, "tetirua-native-${System.currentTimeMillis()}.wav")
+        engine.speak(
+            SynthesisRequest(
+                ids = AudioIds(),
+                text = text,
+                language = "pt-BR",
+                outputMode = if (playback) TtsOutputMode.PLAYBACK else TtsOutputMode.FILE,
+                outputPath = if (playback) null else output.absolutePath,
+            ),
+        ) { result ->
+            runOnUiThread {
+                speakButton.isEnabled = engine.isReady()
+                fileButton.isEnabled = engine.isReady()
+                resultText.text = buildString {
+                    append("Engine: ${result.engine}\n")
+                    append("Idioma: pt-BR\n")
+                    append("Arquivo: ${result.audioPath ?: "não informado"}\n")
+                    append("Duração/tempo: ${result.durationMs ?: 0} ms")
+                    if (result.warnings.isNotEmpty()) {
+                        append("\nAviso: ${result.warnings.joinToString()}")
                     }
-                },
-            )
+                }
+                statusText.text = if (result.warnings.isEmpty()) {
+                    "Estado: concluído"
+                } else {
+                    "Estado: concluído com aviso"
+                }
+            }
         }
     }
 
     override fun onDestroy() {
-        activityScope.cancel()
-        ttsEngine.release()
+        engine.release()
         super.onDestroy()
     }
 
@@ -157,8 +152,4 @@ class MainActivity : AppCompatActivity() {
         ViewGroup.LayoutParams.MATCH_PARENT,
         ViewGroup.LayoutParams.WRAP_CONTENT,
     )
-
-    companion object {
-        private const val REQUEST_AUDIO_PERMISSION = 1001
-    }
 }
