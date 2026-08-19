@@ -11,6 +11,7 @@ import br.com.tetirua.audio.core.SynthesisResult
 import br.com.tetirua.audio.core.TextToSpeechEngine
 import br.com.tetirua.audio.core.TtsOutputMode
 import java.io.File
+import java.io.FileOutputStream
 import java.util.concurrent.ExecutorService
 import java.util.concurrent.Executors
 
@@ -47,10 +48,11 @@ class PiperSherpaOnnxTtsEngine(
             }
         }
 
+        val espeakDataDir = prepareEspeakDataDir()
         val model = OfflineTtsVitsModelConfig(
             model = "$modelDirName/$MODEL_FILE",
             tokens = "$modelDirName/tokens.txt",
-            dataDir = "$modelDirName/espeak-ng-data",
+            dataDir = espeakDataDir,
             lexicon = "",
         )
         tts = OfflineTts(
@@ -63,6 +65,42 @@ class PiperSherpaOnnxTtsEngine(
                 ),
             ),
         )
+    }
+
+    /**
+     * sherpa-onnx Piper phonemization reads espeak-ng-data from a filesystem
+     * directory, not directly from Android assets. The official Android sample
+     * copies this tree to getExternalFilesDir before constructing OfflineTts.
+     */
+    private fun prepareEspeakDataDir(): String {
+        val externalRoot = requireNotNull(context.getExternalFilesDir(null)) {
+            "Armazenamento externo privado indisponível para espeak-ng-data"
+        }
+        val destination = File(externalRoot, "$modelDirName/espeak-ng-data")
+        val marker = File(externalRoot, "$modelDirName/.espeak-ng-data-ready")
+        if (!marker.exists()) {
+            destination.deleteRecursively()
+            copyAssetTree("$modelDirName/espeak-ng-data", destination)
+            marker.parentFile?.mkdirs()
+            marker.writeText("sherpa-onnx-espeak-ng-data-v1")
+        }
+        return destination.absolutePath
+    }
+
+    private fun copyAssetTree(assetPath: String, destination: File) {
+        val children = context.assets.list(assetPath) ?: emptyArray()
+        if (children.isEmpty()) {
+            destination.parentFile?.mkdirs()
+            context.assets.open(assetPath).use { input ->
+                FileOutputStream(destination).use { output -> input.copyTo(output) }
+            }
+            return
+        }
+
+        destination.mkdirs()
+        children.forEach { child ->
+            copyAssetTree("$assetPath/$child", File(destination, child))
+        }
     }
 
     override fun speak(request: SynthesisRequest, onComplete: (SynthesisResult) -> Unit) {

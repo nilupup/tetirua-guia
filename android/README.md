@@ -25,6 +25,8 @@ O primeiro script baixa o pacote oficial `sherpa-onnx-v1.13.6-android.tar.bz2`, 
 
 O segundo baixa `vits-piper-pt_BR-faber-medium-int8.tar.bz2`, valida SHA-256 e instala o modelo, `tokens.txt` e `espeak-ng-data` em `android/local-models/piper/`. O Gradle inclui esses diretórios locais como `jniLibs` e assets, mas o `.gitignore` impede que sejam enviados ao GitHub.
 
+O `espeak-ng-data` não é consumido diretamente dos assets pelo phonemizer Piper. Na primeira inicialização, o engine copia recursivamente essa árvore para o diretório privado externo do aplicativo e passa o caminho absoluto ao sherpa-onnx. Uma marca local evita repetir a cópia em cada execução.
+
 ## Execução
 
 Abra `android/` no Android Studio, copie `android/local.properties.example` para `android/local.properties` e ajuste `sdk.dir` para o Android SDK da máquina. Depois sincronize o Gradle e execute o módulo `app` em um aparelho ou emulador compatível com a ABI instalada.
