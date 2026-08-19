@@ -1,7 +1,5 @@
 package br.com.tetirua.audio
 
-import android.Manifest
-import android.content.pm.PackageManager
 import android.os.Bundle
 import android.view.ViewGroup
 import android.widget.Button
@@ -10,42 +8,26 @@ import android.widget.LinearLayout
 import android.widget.ScrollView
 import android.widget.TextView
 import androidx.appcompat.app.AppCompatActivity
-import androidx.core.app.ActivityCompat
-import androidx.core.content.ContextCompat
 import br.com.tetirua.audio.core.AudioIds
-import br.com.tetirua.audio.core.AudioPipeline
-import br.com.tetirua.audio.core.AudioPipelineState
 import br.com.tetirua.audio.core.SynthesisRequest
-import br.com.tetirua.audio.core.TranscriptionRequest
 import br.com.tetirua.audio.core.TtsOutputMode
-import br.com.tetirua.audio.stt.SimulatedSttEngine
-import br.com.tetirua.audio.tts.AndroidTtsEngine
-import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.SupervisorJob
-import kotlinx.coroutines.cancel
-import kotlinx.coroutines.launch
+import br.com.tetirua.audio.tts.PiperSherpaOnnxTtsEngine
 
+/** Aplicação demonstrativa somente de Piper pt_BR + sherpa-onnx. */
 class MainActivity : AppCompatActivity() {
-    private lateinit var ttsEngine: AndroidTtsEngine
+    private lateinit var engine: PiperSherpaOnnxTtsEngine
     private lateinit var statusText: TextView
-    private lateinit var questionInput: EditText
-    private val activityScope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
+    private lateinit var resultText: TextView
+    private lateinit var input: EditText
+    private lateinit var loadButton: Button
+    private lateinit var speakButton: Button
+    private lateinit var stopButton: Button
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        ttsEngine = AndroidTtsEngine(this)
+        engine = PiperSherpaOnnxTtsEngine(this)
         setContentView(createContent())
-
-        if (ContextCompat.checkSelfPermission(this, Manifest.permission.RECORD_AUDIO) !=
-            PackageManager.PERMISSION_GRANTED
-        ) {
-            ActivityCompat.requestPermissions(
-                this,
-                arrayOf(Manifest.permission.RECORD_AUDIO),
-                REQUEST_AUDIO_PERMISSION,
-            )
-        }
+        loadRuntime()
     }
 
     private fun createContent(): ScrollView {
@@ -54,43 +36,54 @@ class MainActivity : AppCompatActivity() {
             setPadding(40, 40, 40, 40)
         }
 
-        val title = TextView(this).apply {
-            text = "Tetiruã — teste de áudio"
+        root.addView(TextView(this).apply {
+            text = "Tetiruã — Piper + sherpa-onnx"
             textSize = 24f
-        }
-        root.addView(title, matchParent())
-
-        val description = TextView(this).apply {
-            text = "Simulação: wake word → VAD → STT → resposta falada pelo TTS."
+        }, matchParent())
+        root.addView(TextView(this).apply {
+            text = "Branch independente de TTS offline. Voz de referência: Piper pt_BR-faber, executada pelo OfflineTts do sherpa-onnx."
             textSize = 16f
-        }
-        root.addView(description, matchParent())
+        }, matchParent())
 
-        questionInput = EditText(this).apply {
-            hint = "Digite a resposta que deseja testar no áudio"
-            setText("Este é um teste do Tetiruã no celular.")
-            minLines = 3
+        input = EditText(this).apply {
+            hint = "Texto para falar"
+            setText("Olá. Este é um teste do Tetiruã em português brasileiro.")
+            minLines = 4
             gravity = android.view.Gravity.TOP
         }
-        root.addView(questionInput, matchParent())
+        root.addView(input, matchParent())
 
-        val runButton = Button(this).apply {
-            text = "Simular wake word e falar"
-            setOnClickListener { runAudioSimulation() }
+        loadButton = Button(this).apply {
+            text = "Carregar Piper"
+            setOnClickListener { loadRuntime() }
         }
-        root.addView(runButton, matchParent())
+        root.addView(loadButton, matchParent())
 
-        val stopButton = Button(this).apply {
+        speakButton = Button(this).apply {
+            text = "Gerar e falar"
+            isEnabled = false
+            setOnClickListener { speak() }
+        }
+        root.addView(speakButton, matchParent())
+
+        stopButton = Button(this).apply {
             text = "Parar áudio"
             setOnClickListener {
-                ttsEngine.stop()
-                statusText.text = "Estado: reprodução cancelada"
+                engine.stop()
+                statusText.text = "Estado: reprodução parada"
             }
         }
         root.addView(stopButton, matchParent())
 
+        resultText = TextView(this).apply {
+            text = "Resultado: —"
+            textSize = 15f
+            setPadding(0, 24, 0, 12)
+        }
+        root.addView(resultText, matchParent())
+
         statusText = TextView(this).apply {
-            text = "Estado: LOW_POWER_LISTENING"
+            text = "Estado: iniciando"
             textSize = 15f
         }
         root.addView(statusText, matchParent())
@@ -98,58 +91,67 @@ class MainActivity : AppCompatActivity() {
         return ScrollView(this).apply { addView(root) }
     }
 
-    private fun runAudioSimulation() {
-        val answerText = questionInput.text.toString().trim()
-        if (answerText.isEmpty()) {
-            statusText.text = "Estado: nenhuma resposta para reproduzir"
+    private fun loadRuntime() {
+        loadButton.isEnabled = false
+        speakButton.isEnabled = false
+        statusText.text = "Estado: carregando Piper + sherpa-onnx"
+        Thread {
+            runCatching { engine.load() }
+                .onSuccess {
+                    runOnUiThread {
+                        loadButton.isEnabled = true
+                        speakButton.isEnabled = true
+                        statusText.text = "Estado: pronto para gerar áudio"
+                    }
+                }
+                .onFailure { error ->
+                    runOnUiThread {
+                        loadButton.isEnabled = true
+                        statusText.text = "Estado: prepare as bibliotecas/modelo — ${error.message}"
+                    }
+                }
+        }.start()
+    }
+
+    private fun speak() {
+        val text = input.text.toString().trim()
+        if (text.isEmpty()) {
+            statusText.text = "Estado: informe um texto"
             return
         }
 
-        val ids = AudioIds()
-        val pipeline = AudioPipeline(
-            stt = SimulatedSttEngine(),
-            tts = ttsEngine,
-            onStateChanged = { state ->
-                runOnUiThread { statusText.text = "Estado: ${state.name}" }
-            },
-        )
-
-        statusText.text = "Estado: WAKE_WORD_CONFIRMED"
-        activityScope.launch {
-            pipeline.transcribeAndSpeak(
-                transcriptionRequest = TranscriptionRequest(
-                    ids = ids,
-                    audioPath = "simulated://microphone/turn-${ids.turnId}",
-                    languageHint = "pt-BR",
-                ),
-                answerText = answerText,
-                synthesisRequestFactory = { requestIds, text ->
-                    SynthesisRequest(
-                        ids = requestIds,
-                        text = text,
-                        language = "pt-BR",
-                        outputMode = TtsOutputMode.PLAYBACK,
-                    )
-                },
-                onResult = { transcription, synthesis ->
-                    runOnUiThread {
-                        statusText.text = buildString {
-                            append("Estado: COMPLETED\n")
-                            append("STT: ${transcription.text}\n")
-                            append("TTS: ${synthesis.engine}")
-                            if (synthesis.warnings.isNotEmpty()) {
-                                append("\nAviso: ${synthesis.warnings.joinToString()}")
-                            }
-                        }
+        speakButton.isEnabled = false
+        statusText.text = "Estado: gerando WAV"
+        engine.speak(
+            SynthesisRequest(
+                ids = AudioIds(),
+                text = text,
+                language = "pt-BR",
+                outputMode = TtsOutputMode.PLAYBACK,
+            ),
+        ) { result ->
+            runOnUiThread {
+                speakButton.isEnabled = true
+                resultText.text = buildString {
+                    append("Engine: ${result.engine}\n")
+                    append("Modelo: ${result.model}\n")
+                    append("Arquivo: ${result.audioPath ?: "não gerado"}\n")
+                    append("Duração: ${result.durationMs ?: 0} ms")
+                    if (result.warnings.isNotEmpty()) {
+                        append("\nAviso: ${result.warnings.joinToString()}")
                     }
-                },
-            )
+                }
+                statusText.text = if (result.audioPath != null) {
+                    "Estado: áudio reproduzido"
+                } else {
+                    "Estado: falha ao gerar áudio"
+                }
+            }
         }
     }
 
     override fun onDestroy() {
-        activityScope.cancel()
-        ttsEngine.release()
+        engine.release()
         super.onDestroy()
     }
 
@@ -157,8 +159,4 @@ class MainActivity : AppCompatActivity() {
         ViewGroup.LayoutParams.MATCH_PARENT,
         ViewGroup.LayoutParams.WRAP_CONTENT,
     )
-
-    companion object {
-        private const val REQUEST_AUDIO_PERMISSION = 1001
-    }
 }

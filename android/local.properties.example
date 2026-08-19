@@ -1,0 +1,3 @@
+# Copie este arquivo para android/local.properties e ajuste o caminho local.
+# Não commite android/local.properties; ele contém o caminho da máquina.
+sdk.dir=/caminho/para/Android/Sdk

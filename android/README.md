@@ -1,63 +1,50 @@
-# Tetiruã Audio Android
+# Tetiruã Audio Android — branch Piper + sherpa-onnx
 
-Este módulo é a primeira base Android/Kotlin da camada de áudio do Tetiruã. Ele separa a aplicação móvel dos adaptadores Python de pesquisa e mantém os contratos comuns de wake word, VAD, STT e TTS.
+Esta branch é uma aplicação Android/Kotlin independente para testar **Piper pt_BR** executado pelo runtime **sherpa-onnx**. Ela não usa Whisper.cpp, Moonshine, Kokoro ou Android TTS como runtime da demonstração.
 
-## O que já funciona no esqueleto
+## O que a aplicação demonstra
 
-A `MainActivity` solicita permissão de microfone, simula a ativação da wake word e reproduz texto em português brasileiro com o `AndroidTtsEngine`. O teste demonstrativo não chama LLM, VLM, GPS ou web search; ele valida apenas o caminho de áudio local:
+A `MainActivity` recebe uma resposta textual, gera áudio WAV localmente com `OfflineTts`, toca o resultado pelo alto-falante e mostra na tela o caminho, o modelo, a duração e o engine usado:
 
 ```text
-wake_word.detected → vad.speech.started → stt.final (simulado) → tts.started → tts.completed
+texto do orquestrador → Piper VITS pt_BR → sherpa-onnx OfflineTts → WAV → alto-falante
 ```
 
-O TTS nativo não exige pesos adicionais. Para testar, abra a pasta `android/` no Android Studio, sincronize o Gradle e execute o aplicativo em um dispositivo Android ou emulador com um mecanismo de voz em português instalado.
+A integração com LLM, VLM, GPS e web search permanece fora desta branch. O orquestrador pode enviar uma `SynthesisRequest` em português brasileiro e consumir o `SynthesisResult`.
 
-## Situação dos motores
+## Preparação local
 
-| Motor | Papel | Caminho Android/Kotlin | Estado deste módulo |
-|---|---|---|---|
-| Moonshine | STT | Binding/runtime nativo a validar | Catálogo e contrato preparados; adaptador específico será implementado na branch `feat/stt-moonshine`. |
-| whisper.cpp | STT | JNI/binding Java/Kotlin e modelo local | Catálogo e contrato preparados; adaptador específico será implementado na branch `feat/stt-whisper-cpp-tflite`. |
-| Android TTS | TTS | API nativa `android.speech.tts.TextToSpeech` | Adaptador funcional inicial em `tts/AndroidTtsEngine.kt`. |
-| AVSpeechSynthesizer | TTS | Apenas iOS; não pertence ao módulo Android | Mantido na documentação multiplataforma. |
-| Kokoro-82M | TTS | Runtime ONNX/sherpa-onnx, não Python direto | Catálogo e contrato preparados; runtime Android será validado na branch `feat/tts-kokoro-82m`. |
-| Piper + sherpa-onnx | TTS | APIs Kotlin/Java e bibliotecas nativas por ABI | Catálogo e contrato preparados; integração será implementada na branch `feat/tts-piper-sherpa-onnx`. |
-| Wake word/KWS | Ativação | `KeywordSpotter` via sherpa-onnx ou motor dedicado | Contrato preparado; motor definitivo será comparado separadamente. |
-| VAD | Delimitação da fala | `Vad` via sherpa-onnx ou modelo compatível | Contrato preparado; simulador e integração real serão separados. |
+As bibliotecas JNI e os pesos não são versionados. Em uma máquina com `curl`, `sha256sum`, `tar` e `bzip2`, execute na raiz do repositório:
 
-## Modelos e bibliotecas
+```bash
+./android/scripts/fetch-sherpa-onnx-android.sh
+./android/scripts/fetch-piper-ptbr-model.sh
+```
 
-Pesos de modelos, arquivos ONNX, arquivos Piper, modelos Whisper, modelos Moonshine, vozes e bibliotecas nativas `.so` não devem ser enviados ao Git por padrão. O projeto deve versionar:
+O primeiro script baixa o pacote oficial `sherpa-onnx-v1.13.6-android.tar.bz2`, valida SHA-256 e instala `libonnxruntime.so`, `libsherpa-onnx-jni.so`, `libsherpa-onnx-c-api.so` e `libsherpa-onnx-cxx-api.so` em `android/local-native-libs/jniLibs/<abi>/`.
 
-1. contratos e adaptadores Kotlin;
-2. configuração de modelo;
-3. scripts ou instruções de download;
-4. hashes e versões esperadas;
-5. testes sem pesos grandes;
-6. documentação de licença e redistribuição.
-
-Para sherpa-onnx, a documentação oficial descreve bibliotecas Android pré-compiladas ou build com NDK e arquivos nativos organizados por ABI. A integração inicial deverá registrar a versão exata utilizada e manter os binários em uma etapa de empacotamento, não misturados ao código-fonte.
+O segundo baixa `vits-piper-pt_BR-faber-medium-int8.tar.bz2`, valida SHA-256 e instala o modelo, `tokens.txt` e `espeak-ng-data` em `android/local-models/piper/`. O Gradle inclui esses diretórios locais como `jniLibs` e assets, mas o `.gitignore` impede que sejam enviados ao GitHub.
 
 ## Execução
 
-No Android Studio:
+Abra `android/` no Android Studio, copie `android/local.properties.example` para `android/local.properties` e ajuste `sdk.dir` para o Android SDK da máquina. Depois sincronize o Gradle e execute o módulo `app` em um aparelho ou emulador compatível com a ABI instalada.
 
-```text
-Open -> /home/ubuntu/tetirua-guia/android
-Sync Project with Gradle Files
-Run app
-```
+O build exige Android SDK, Gradle Wrapper e uma instalação local das bibliotecas/modelo. O ambiente remoto deste projeto não possui Android SDK/NDK/CMake completos, então a confirmação final do APK deve ser feita em uma máquina com Android Studio.
 
-Para usar a aplicação em dispositivo físico, habilite a depuração USB e aceite a permissão de microfone. Para testar o TTS, use o botão `Simular wake word e falar`. A etapa inicial não grava áudio nem envia dados para a internet.
+## Estrutura
 
-## Próximas branches
+| Arquivo | Responsabilidade |
+|---|---|
+| `app/src/main/java/com/k2fsa/sherpa/onnx/Tts.kt` | API Kotlin oficial do sherpa-onnx, mantida com o cabeçalho de licença upstream. |
+| `app/src/main/java/br/com/tetirua/audio/tts/PiperSherpaOnnxTtsEngine.kt` | Adaptador `TextToSpeechEngine`, configuração VITS e geração/reprodução do WAV. |
+| `app/src/main/java/br/com/tetirua/audio/MainActivity.kt` | Demonstração independente de geração e playback. |
+| `scripts/fetch-sherpa-onnx-android.sh` | Download verificado das bibliotecas nativas oficiais. |
+| `scripts/fetch-piper-ptbr-model.sh` | Download verificado do modelo Piper pt_BR oficial. |
 
-A base comum deve ser levada para as cinco branches de solução, mas os adaptadores específicos devem ser desenvolvidos separadamente:
+## Referências oficiais
 
-- `feat/stt-moonshine`;
-- `feat/stt-whisper-cpp-tflite`;
-- `feat/tts-native`;
-- `feat/tts-kokoro-82m`;
-- `feat/tts-piper-sherpa-onnx`.
+A implementação segue a [API Kotlin TTS do sherpa-onnx](https://github.com/k2-fsa/sherpa-onnx/blob/master/sherpa-onnx/kotlin-api/Tts.kt), o [repositório oficial](https://github.com/k2-fsa/sherpa-onnx), a documentação de [TTS](https://k2-fsa.github.io/sherpa/onnx/tts/index.html), o pacote de [bibliotecas Android v1.13.6](https://github.com/k2-fsa/sherpa-onnx/releases/tag/v1.13.6) e o pacote de [modelos TTS](https://github.com/k2-fsa/sherpa-onnx/releases/tag/tts-models).
 
-Cada branch deverá conter teste, instrução de instalação, modelo compatível, benchmark e limitações. Nenhuma branch deve fazer merge na `main` antes da análise do Henrique e da comparação com as demais alternativas.
+## Independência de branches
+
+O runtime sherpa-onnx é exclusivo desta branch. Para testar Kokoro, troque para `feat/tts-kokoro-82m`; para testar Android TTS, troque para `feat/tts-native`; para STT, troque para a branch Moonshine ou Whisper correspondente. Nenhuma branch deve ser mesclada à `main` sem aprovação do Henrique.
