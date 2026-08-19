@@ -1,0 +1,47 @@
+{
+  "schemaVersion": "1.0",
+  "branch": "feat/tts-kokoro-82m",
+  "activeModel": {
+    "id": "kokoro-int8-multi-lang-v1_1",
+    "role": "TTS",
+    "runtime": "sherpa-onnx OfflineTts Kotlin API",
+    "version": "Kokoro v1.1 int8",
+    "languages": ["en", "zh"],
+    "speaker": {
+      "name": "af_maple",
+      "sid": 0
+    },
+    "sampleRateHz": 24000,
+    "archive": {
+      "name": "kokoro-int8-multi-lang-v1_1.tar.bz2",
+      "sha256": "a1e94694776049035c4f2c6529f003aaece993c76aae9a78995831c3c4dcafc6",
+      "sourceUrl": "https://github.com/k2-fsa/sherpa-onnx/releases/download/tts-models/kokoro-int8-multi-lang-v1_1.tar.bz2"
+    },
+    "files": [
+      "model.int8.onnx",
+      "voices.bin",
+      "tokens.txt",
+      "lexicon-us-en.txt",
+      "lexicon-zh.txt",
+      "espeak-ng-data/"
+    ],
+    "localDestination": "android/local-models/kokoro/kokoro-int8-multi-lang-v1_1/",
+    "sourceUrl": "https://k2-fsa.github.io/sherpa/onnx/tts/all/Chinese-English/kokoro-multi-lang-v1_1.html",
+    "license": "Kokoro and sherpa-onnx upstream terms; verify upstream notices before redistribution",
+    "weightsInGit": false
+  },
+  "nativeRuntime": {
+    "version": "sherpa-onnx v1.13.6",
+    "archive": "sherpa-onnx-v1.13.6-android.tar.bz2",
+    "sha256": "bb7f891b259f4faee5c55d4cc10d79a3ba2b27416e9320d2c4d044400834d75b",
+    "sourceUrl": "https://github.com/k2-fsa/sherpa-onnx/releases/tag/v1.13.6",
+    "localDestination": "android/local-native-libs/jniLibs/",
+    "abis": ["arm64-v8a", "armeabi-v7a", "x86_64", "x86"]
+  },
+  "codeEntryPoints": [
+    "android/app/src/main/java/br/com/tetirua/audio/tts/KokoroTtsEngine.kt",
+    "android/app/src/main/java/br/com/tetirua/audio/MainActivity.kt",
+    "android/app/src/main/java/com/k2fsa/sherpa/onnx/Tts.kt"
+  ],
+  "artifactPolicy": "Use fetch-sherpa-onnx-android.sh and fetch-kokoro-model.sh locally. Do not commit .onnx, voices.bin, espeak-ng-data, .so or APK files."
+}

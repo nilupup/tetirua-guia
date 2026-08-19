@@ -54,11 +54,11 @@ object ModelCatalog {
         ModelOption(
             id = "kokoro-82m",
             role = AudioRole.TTS,
-            runtime = "ONNX ou sherpa-onnx",
-            platformStatus = "adaptador Android a validar",
-            modelHint = "Kokoro-82M e vozes",
-            sourceUrl = "https://huggingface.co/hexgrad/Kokoro-82M",
-            artifactPolicy = "modelo/vozes baixados separadamente",
+            runtime = "sherpa-onnx OfflineTts Kotlin API",
+            platformStatus = "implementado nesta branch Android",
+            modelHint = "Kokoro int8 v1.1; af_maple sid 0; inglês/chinês",
+            sourceUrl = "https://k2-fsa.github.io/sherpa/onnx/tts/all/Chinese-English/kokoro-multi-lang-v1_1.html",
+            artifactPolicy = "modelo e JNI baixados pelos scripts; não versionar",
         ),
         ModelOption(
             id = "piper-sherpa-onnx",
@@ -88,4 +88,7 @@ object ModelCatalog {
             artifactPolicy = "modelo VAD fora do Git",
         ),
     )
+
+    /** Runtime/modelo efetivamente exercitado pela Activity desta branch. */
+    val active: ModelOption = all.first { it.id == "kokoro-82m" }
 }
