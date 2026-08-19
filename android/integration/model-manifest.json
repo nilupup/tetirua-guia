@@ -1,0 +1,39 @@
+{
+  "schemaVersion": "1.0",
+  "branch": "feat/stt-whisper-cpp-tflite",
+  "activeModel": {
+    "id": "whisper-cpp-ggml-base",
+    "role": "STT",
+    "runtime": "whisper.cpp via JNI/NDK",
+    "version": "ggml-base",
+    "languages": ["multilingual", "pt-BR"],
+    "files": [
+      {
+        "name": "ggml-base.bin",
+        "sizeBytes": 147951465,
+        "xetHash": "2f62d18b50c3f3feafbf990eec23a93d319660b1efbdd3fff55e52b7cde2e374",
+        "destination": "android/app/src/main/assets/models/ggml-base.bin"
+      }
+    ],
+    "sourceUrl": "https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-base.bin?download=true",
+    "sourceApi": "https://huggingface.co/api/models/ggerganov/whisper.cpp/tree/main?recursive=false",
+    "license": "Whisper model and whisper.cpp upstream terms; verify upstream notices before redistribution",
+    "weightsInGit": false
+  },
+  "nativeRuntime": {
+    "source": "https://github.com/ggml-org/whisper.cpp",
+    "submodulePath": "third_party/whisper.cpp",
+    "jniPath": "android/whisper/src/main/jni/whisper",
+    "ndkVersion": "25.2.9519653",
+    "abis": ["arm64-v8a", "armeabi-v7a", "x86_64", "x86"]
+  },
+  "codeEntryPoints": [
+    "android/app/src/main/java/br/com/tetirua/audio/stt/WhisperCppSttEngine.kt",
+    "android/app/src/main/java/br/com/tetirua/audio/stt/WhisperAudioRecorder.kt",
+    "android/app/src/main/java/br/com/tetirua/audio/stt/PcmWavReader.kt",
+    "android/app/src/main/java/br/com/tetirua/audio/MainActivity.kt",
+    "android/whisper/src/main/java/com/whispercpp/whisper/LibWhisper.kt",
+    "android/whisper/src/main/jni/whisper/jni.c"
+  ],
+  "artifactPolicy": "Do not commit the .bin model, generated .so files or APKs. Initialize the submodule and install the model locally before building."
+}

@@ -36,9 +36,9 @@ object ModelCatalog {
         ModelOption(
             id = "whisper-cpp-tflite",
             role = AudioRole.STT,
-            runtime = "whisper.cpp JNI ou runtime TFLite",
-            platformStatus = "suporte Android oficial no whisper.cpp; TFLite separado",
-            modelHint = "tiny/base multilíngue",
+            runtime = "whisper.cpp JNI/NDK próprio",
+            platformStatus = "implementado nesta branch Android",
+            modelHint = "ggml-base.bin multilíngue, pt-BR",
             sourceUrl = "https://github.com/ggml-org/whisper.cpp",
             artifactPolicy = "modelo local fora do Git",
         ),
@@ -88,4 +88,7 @@ object ModelCatalog {
             artifactPolicy = "modelo VAD fora do Git",
         ),
     )
+
+    /** Runtime/modelo efetivamente exercitado pela Activity desta branch. */
+    val active: ModelOption = all.first { it.id == "whisper-cpp-tflite" }
 }
