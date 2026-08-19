@@ -29,6 +29,9 @@ class WhisperCppSttEngine(
             language = request.languageHint,
             printTimestamp = false,
         ).trim()
+        require(text.isNotBlank()) {
+            "Whisper não retornou segmentos; verifique o microfone, o áudio gravado e o modelo."
+        }
 
         return TranscriptionResult(
             ids = request.ids,

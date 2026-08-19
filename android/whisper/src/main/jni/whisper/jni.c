@@ -13,6 +13,7 @@
 
 #define LOGI(...) __android_log_print(ANDROID_LOG_INFO,     TAG, __VA_ARGS__)
 #define LOGW(...) __android_log_print(ANDROID_LOG_WARN,     TAG, __VA_ARGS__)
+#define LOGE(...) __android_log_print(ANDROID_LOG_ERROR,    TAG, __VA_ARGS__)
 
 static inline int min(int a, int b) {
     return (a < b) ? a : b;
@@ -161,8 +162,8 @@ Java_com_whispercpp_whisper_WhisperLib_00024Companion_freeContext(
     whisper_free(context);
 }
 
-JNIEXPORT void JNICALL
-Java_com_whispercpp_whisper_WhisperLib_00024Companion_fullTranscribe(
+JNIEXPORT jint JNICALL
+Java_com.whispercpp_whisper_WhisperLib_00024Companion_fullTranscribe(
         JNIEnv *env, jobject thiz, jlong context_ptr, jint num_threads,
         jfloatArray audio_data, jstring language_str) {
     UNUSED(thiz);
@@ -185,15 +186,18 @@ Java_com_whispercpp_whisper_WhisperLib_00024Companion_fullTranscribe(
     params.single_segment = false;
 
     whisper_reset_timings(context);
+    jint status = 0;
 
     LOGI("About to run whisper_full");
     if (whisper_full(context, params, audio_data_arr, audio_data_length) != 0) {
-        LOGI("Failed to run the model");
+        LOGE("whisper_full failed for %d audio samples", (int) audio_data_length);
+        status = -1;
     } else {
         whisper_print_timings(context);
     }
     (*env)->ReleaseFloatArrayElements(env, audio_data, audio_data_arr, JNI_ABORT);
     (*env)->ReleaseStringUTFChars(env, language_str, language);
+    return status;
 }
 
 JNIEXPORT jint JNICALL

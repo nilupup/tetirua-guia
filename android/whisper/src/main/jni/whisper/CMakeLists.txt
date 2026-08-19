@@ -2,6 +2,12 @@ cmake_minimum_required(VERSION 3.22.1)
 
 project(tetirua_whisper)
 
+# Android 16 can use 16 KB memory pages. Apply the linker flags globally so
+# whisper and all shared GGML libraries receive compatible LOAD alignment.
+set(CMAKE_SHARED_LINKER_FLAGS
+    "${CMAKE_SHARED_LINKER_FLAGS} -Wl,-z,max-page-size=16384 -Wl,-z,common-page-size=16384"
+)
+
 set(CMAKE_CXX_STANDARD 17)
 set(WHISPER_CPP_DIR "${CMAKE_CURRENT_LIST_DIR}/../../../../../../third_party/whisper.cpp" CACHE PATH "Path to whisper.cpp")
 
@@ -47,6 +53,13 @@ target_compile_definitions(
     WHISPER_VERSION="${WHISPER_VERSION}"
 )
 target_compile_options(whisper PRIVATE -O3 -fvisibility=hidden -fvisibility-inlines-hidden)
-target_link_options(whisper PRIVATE -Wl,--gc-sections -Wl,--exclude-libs,ALL)
+target_link_options(
+    whisper
+    PRIVATE
+    -Wl,--gc-sections
+    -Wl,--exclude-libs,ALL
+    -Wl,-z,max-page-size=16384
+    -Wl,-z,common-page-size=16384
+)
 
 target_link_libraries(whisper log android ggml)
