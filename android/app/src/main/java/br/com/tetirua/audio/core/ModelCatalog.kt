@@ -63,11 +63,11 @@ object ModelCatalog {
         ModelOption(
             id = "piper-sherpa-onnx",
             role = AudioRole.TTS,
-            runtime = "sherpa-onnx Kotlin/Java",
-            platformStatus = "candidato Android direto",
-            modelHint = "modelo Piper compatível",
-            sourceUrl = "https://github.com/k2-fsa/sherpa-onnx",
-            artifactPolicy = "modelo Piper fora do Git",
+            runtime = "sherpa-onnx OfflineTts VITS/Piper Kotlin API",
+            platformStatus = "implementado nesta branch Android",
+            modelHint = "vits-piper-pt_BR-faber-medium-int8",
+            sourceUrl = "https://k2-fsa.github.io/sherpa/onnx/tts/piper.html",
+            artifactPolicy = "modelo e JNI baixados pelos scripts; não versionar",
         ),
         ModelOption(
             id = "wake-word-kws",
@@ -88,4 +88,7 @@ object ModelCatalog {
             artifactPolicy = "modelo VAD fora do Git",
         ),
     )
+
+    /** Runtime/modelo efetivamente exercitado pela Activity desta branch. */
+    val active: ModelOption = all.first { it.id == "piper-sherpa-onnx" }
 }

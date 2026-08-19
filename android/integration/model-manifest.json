@@ -1,0 +1,39 @@
+{
+  "schemaVersion": "1.0",
+  "branch": "feat/tts-piper-sherpa-onnx",
+  "activeModel": {
+    "id": "vits-piper-pt_BR-faber-medium-int8",
+    "role": "TTS",
+    "runtime": "sherpa-onnx OfflineTts VITS/Piper Kotlin API",
+    "version": "Piper pt_BR faber medium int8",
+    "language": "pt-BR",
+    "archive": {
+      "name": "vits-piper-pt_BR-faber-medium-int8.tar.bz2",
+      "sha256": "dbc8b1d7d729fd417ea78a350ed35696c928770ac93513d3f507bd4e88eee3fd",
+      "sourceUrl": "https://github.com/k2-fsa/sherpa-onnx/releases/download/tts-models/vits-piper-pt_BR-faber-medium-int8.tar.bz2"
+    },
+    "requiredFiles": [
+      "vits-piper-pt_BR-faber-medium-int8/model.int8.onnx",
+      "vits-piper-pt_BR-faber-medium-int8/tokens.txt",
+      "vits-piper-pt_BR-faber-medium-int8/espeak-ng-data/"
+    ],
+    "localDestination": "android/local-models/piper/",
+    "sourceUrl": "https://k2-fsa.github.io/sherpa/onnx/tts/piper.html",
+    "license": "Piper model and sherpa-onnx upstream terms; verify upstream notices before redistribution",
+    "weightsInGit": false
+  },
+  "nativeRuntime": {
+    "version": "sherpa-onnx v1.13.6",
+    "archive": "sherpa-onnx-v1.13.6-android.tar.bz2",
+    "sha256": "bb7f891b259f4faee5c55d4cc10d79a3ba2b27416e9320d2c4d044400834d75b",
+    "sourceUrl": "https://github.com/k2-fsa/sherpa-onnx/releases/tag/v1.13.6",
+    "localDestination": "android/local-native-libs/jniLibs/",
+    "abis": ["arm64-v8a", "armeabi-v7a", "x86_64", "x86"]
+  },
+  "codeEntryPoints": [
+    "android/app/src/main/java/br/com/tetirua/audio/tts/PiperSherpaOnnxTtsEngine.kt",
+    "android/app/src/main/java/br/com/tetirua/audio/MainActivity.kt",
+    "android/app/src/main/java/com/k2fsa/sherpa/onnx/Tts.kt"
+  ],
+  "artifactPolicy": "Use fetch-sherpa-onnx-android.sh and fetch-piper-ptbr-model.sh locally. Do not commit .onnx, tokens.txt, espeak-ng-data, .so or APK files."
+}
