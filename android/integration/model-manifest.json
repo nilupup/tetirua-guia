@@ -1,0 +1,22 @@
+{
+  "schemaVersion": "1.0",
+  "branch": "feat/tts-native",
+  "activeModel": {
+    "id": "android-system-tts-pt-br",
+    "role": "TTS",
+    "runtime": "android.speech.tts.TextToSpeech",
+    "version": "provided-by-device",
+    "languages": ["pt-BR"],
+    "voices": "The installed Android voice selected by the platform",
+    "requiredFiles": [],
+    "localPreparation": "No model download. Install a pt-BR voice in Android speech settings when necessary.",
+    "sourceUrl": "https://developer.android.com/reference/android/speech/tts/TextToSpeech",
+    "license": "Android platform/runtime terms; verify the installed voice provider terms",
+    "weightsInGit": false
+  },
+  "codeEntryPoints": [
+    "android/app/src/main/java/br/com/tetirua/audio/tts/AndroidTtsEngine.kt",
+    "android/app/src/main/java/br/com/tetirua/audio/MainActivity.kt"
+  ],
+  "artifactPolicy": "No model weights or native binaries are stored in Git."
+}

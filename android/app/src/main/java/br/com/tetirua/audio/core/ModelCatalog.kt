@@ -45,9 +45,9 @@ object ModelCatalog {
         ModelOption(
             id = "tts-native",
             role = AudioRole.TTS,
-            runtime = "Android TextToSpeech / AVSpeechSynthesizer",
-            platformStatus = "Android nativo / iOS nativo",
-            modelHint = "voz fornecida pela plataforma",
+            runtime = "android.speech.tts.TextToSpeech",
+            platformStatus = "implementado nesta branch Android",
+            modelHint = "voz pt-BR instalada no dispositivo",
             sourceUrl = "https://developer.android.com/reference/android/speech/tts/TextToSpeech",
             artifactPolicy = "nenhum peso adicional",
         ),
@@ -88,4 +88,7 @@ object ModelCatalog {
             artifactPolicy = "modelo VAD fora do Git",
         ),
     )
+
+    /** Runtime/modelo efetivamente exercitado pela Activity desta branch. */
+    val active: ModelOption = all.first { it.id == "tts-native" }
 }
