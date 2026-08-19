@@ -18,13 +18,19 @@ whisper.cpp via JNI
 TranscriptionResult em pt-BR
 ```
 
-A Activity grava seis segundos, carrega um modelo Whisper local e exibe a transcrição. O modelo deve ser colocado manualmente em:
+A Activity grava seis segundos, carrega um modelo Whisper local e exibe a transcrição. Para o experimento de latência, o engine prefere automaticamente o modelo quantizado menor, quando ele estiver presente:
+
+```text
+android/app/src/main/assets/models/ggml-base-q5_1.bin
+```
+
+Se o arquivo quantizado não existir, o engine mantém compatibilidade com o modelo já validado:
 
 ```text
 android/app/src/main/assets/models/ggml-base.bin
 ```
 
-O arquivo de modelo é ignorado pelo Git e não é enviado ao GitHub. A documentação oficial do exemplo Android do whisper.cpp recomenda modelos `tiny` ou `base` para dispositivos móveis; a variante usada pode ser trocada sem modificar o contrato da aplicação.
+Os arquivos de modelo são ignorados pelo Git e não são enviados ao GitHub. A documentação oficial do whisper.cpp confirma que modelos quantizados podem reduzir memória e, dependendo do hardware, melhorar a eficiência do processamento; por isso a branch compara primeiro `base-q5_1` com `base` e mantém o fallback estável.
 
 ## Como executar
 
@@ -34,7 +40,7 @@ Abra a pasta `android/` no Android Studio e sincronize o Gradle. Inicialize o su
 git submodule update --init --recursive
 ```
 
-Baixe ou gere o modelo Whisper no formato compatível e coloque-o em `app/src/main/assets/models/ggml-base.bin`. Conecte um aparelho Android, habilite a depuração USB, execute o aplicativo e autorize o microfone. Pressione **Gravar 6 segundos e transcrever**.
+Baixe um ou ambos os modelos Whisper no formato compatível e coloque-os em `app/src/main/assets/models/`. Para testar a otimização, use `ggml-base-q5_1.bin`; sem ele, o app usará `ggml-base.bin`. Conecte um aparelho Android, habilite a depuração USB, execute o aplicativo e autorize o microfone. Pressione **Gravar 6 segundos e transcrever**.
 
 Esta branch precisa do Android NDK e CMake para compilar o módulo `:whisper`. O módulo usa o código upstream como submódulo em `third_party/whisper.cpp` e compila a biblioteca JNI localmente.
 

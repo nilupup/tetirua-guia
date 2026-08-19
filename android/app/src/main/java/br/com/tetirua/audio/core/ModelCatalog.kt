@@ -38,7 +38,7 @@ object ModelCatalog {
             role = AudioRole.STT,
             runtime = "whisper.cpp JNI/NDK próprio",
             platformStatus = "implementado nesta branch Android",
-            modelHint = "ggml-base.bin multilíngue, pt-BR",
+            modelHint = "ggml-base-q5_1.bin multilíngue, pt-BR; fallback ggml-base.bin",
             sourceUrl = "https://github.com/ggml-org/whisper.cpp",
             artifactPolicy = "modelo local fora do Git",
         ),

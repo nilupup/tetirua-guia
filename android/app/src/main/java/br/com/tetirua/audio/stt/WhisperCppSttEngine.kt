@@ -13,13 +13,23 @@ import java.io.File
 /**
  * STT real desta branch: whisper.cpp via JNI próprio, sem sherpa-onnx.
  * O primeiro alvo Android validado é arm64-v8a.
+ *
+ * A variante quantizada é preferida quando estiver presente nos assets. O
+ * fallback mantém o teste atual funcional enquanto o novo modelo ainda não
+ * foi baixado para a máquina de desenvolvimento.
  */
 class WhisperCppSttEngine(
     private val context: Context,
-    private val modelAssetPath: String = DEFAULT_MODEL_ASSET,
+    requestedModelAssetPath: String? = null,
 ) : SpeechToTextEngine {
     private val loadLock = Any()
+    private val modelAssetPath: String =
+        requestedModelAssetPath ?: resolveDefaultModelAsset(context)
     private var whisperContext: WhisperContext? = null
+
+    /** Nome do arquivo efetivamente selecionado, útil para diagnóstico na UI. */
+    val selectedModelAssetPath: String
+        get() = modelAssetPath
 
     override suspend fun transcribe(request: TranscriptionRequest): TranscriptionResult =
         withContext(Dispatchers.Default) {
@@ -61,12 +71,9 @@ class WhisperCppSttEngine(
     }
 
     private fun checkAssetExists() {
-        val exists = runCatching {
-            context.assets.open(modelAssetPath).use { }
-            true
-        }.getOrDefault(false)
-        check(exists) {
-            "Modelo Whisper ausente: $modelAssetPath. Coloque ggml-base.bin em app/src/main/assets/models/."
+        check(assetExists(context, modelAssetPath)) {
+            "Modelo Whisper ausente: $modelAssetPath. " +
+                "Coloque um dos modelos em app/src/main/assets/models/."
         }
     }
 
@@ -79,6 +86,26 @@ class WhisperCppSttEngine(
 
     companion object {
         const val ENGINE_ID = "whisper.cpp-jni-android"
+        const val QUANTIZED_MODEL_ASSET = "models/ggml-base-q5_1.bin"
         const val DEFAULT_MODEL_ASSET = "models/ggml-base.bin"
+
+        /**
+         * Prefere o modelo Q5_1 por ser menor, mas preserva o modelo base
+         * atual para que a branch continue executável durante a migração.
+         */
+        private val MODEL_CANDIDATES = listOf(
+            QUANTIZED_MODEL_ASSET,
+            DEFAULT_MODEL_ASSET,
+        )
+
+        fun resolveDefaultModelAsset(context: Context): String =
+            MODEL_CANDIDATES.firstOrNull { assetExists(context, it) }
+                ?: DEFAULT_MODEL_ASSET
+
+        private fun assetExists(context: Context, assetPath: String): Boolean =
+            runCatching {
+                context.assets.open(assetPath).use { }
+                true
+            }.getOrDefault(false)
     }
 }

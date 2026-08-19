@@ -50,7 +50,7 @@ class MainActivity : AppCompatActivity() {
         }, matchParent())
 
         root.addView(TextView(this).apply {
-            text = "Branch independente: whisper.cpp + JNI próprio. Primeiro alvo: arm64-v8a. Modelo: models/ggml-base.bin."
+            text = "Branch independente: whisper.cpp + JNI próprio. Primeiro alvo: arm64-v8a. Preferência: models/ggml-base-q5_1.bin; fallback: models/ggml-base.bin."
             textSize = 16f
         }, matchParent())
 
@@ -105,6 +105,8 @@ class MainActivity : AppCompatActivity() {
                 val engine = whisperEngine ?: WhisperCppSttEngine(this@MainActivity).also {
                     whisperEngine = it
                 }
+                val modelName = engine.selectedModelAssetPath.substringAfterLast('/')
+                statusText.text = "Estado: modelo selecionado — $modelName"
 
                 statusText.text = "Estado: transcrevendo localmente, sem internet"
                 val result = engine.transcribe(
@@ -119,7 +121,7 @@ class MainActivity : AppCompatActivity() {
                 statusText.text = "Estado: concluído em ${result.processingTimeMs ?: 0} ms"
             } catch (error: Exception) {
                 statusText.text = "Estado: erro — ${error.message ?: error.javaClass.simpleName}"
-                resultText.text = "Diagnóstico: confira a ABI arm64-v8a, o modelo ggml-base.bin e a permissão de microfone."
+                resultText.text = "Diagnóstico: confira a ABI arm64-v8a, um modelo em app/src/main/assets/models/ e a permissão de microfone."
             } finally {
                 output.delete()
                 setBusy(false)
