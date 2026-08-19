@@ -11,6 +11,7 @@ import br.com.tetirua.audio.core.SynthesisResult
 import br.com.tetirua.audio.core.TextToSpeechEngine
 import br.com.tetirua.audio.core.TtsOutputMode
 import java.io.File
+import java.io.FileOutputStream
 import java.util.concurrent.ExecutorService
 import java.util.concurrent.Executors
 
@@ -45,11 +46,12 @@ class KokoroTtsEngine(
             "Asset Kokoro ausente: $modelDirName/espeak-ng-data"
         }
 
+        val espeakDataDir = prepareEspeakDataDir()
         val model = OfflineTtsKokoroModelConfig(
             model = "$modelDirName/model.int8.onnx",
             voices = "$modelDirName/voices.bin",
             tokens = "$modelDirName/tokens.txt",
-            dataDir = "$modelDirName/espeak-ng-data",
+            dataDir = espeakDataDir,
             lexicon = "$modelDirName/lexicon-us-en.txt,$modelDirName/lexicon-zh.txt",
             lang = "en-us",
         )
@@ -65,6 +67,41 @@ class KokoroTtsEngine(
         )
         check(speakerId in 0 until requireNotNull(tts).numSpeakers()) {
             "Speaker Kokoro inválido: $speakerId"
+        }
+    }
+
+    /**
+     * sherpa-onnx phonemization needs espeak-ng-data on the filesystem.
+     * Android assets are copied to the app-private external directory once.
+     */
+    private fun prepareEspeakDataDir(): String {
+        val externalRoot = requireNotNull(context.getExternalFilesDir(null)) {
+            "Armazenamento externo privado indisponível para espeak-ng-data"
+        }
+        val destination = File(externalRoot, "$modelDirName/espeak-ng-data")
+        val marker = File(externalRoot, "$modelDirName/.espeak-ng-data-ready")
+        if (!marker.exists()) {
+            destination.deleteRecursively()
+            copyAssetTree("$modelDirName/espeak-ng-data", destination)
+            marker.parentFile?.mkdirs()
+            marker.writeText("sherpa-onnx-espeak-ng-data-v1")
+        }
+        return destination.absolutePath
+    }
+
+    private fun copyAssetTree(assetPath: String, destination: File) {
+        val children = context.assets.list(assetPath) ?: emptyArray()
+        if (children.isEmpty()) {
+            destination.parentFile?.mkdirs()
+            context.assets.open(assetPath).use { input ->
+                FileOutputStream(destination).use { output -> input.copyTo(output) }
+            }
+            return
+        }
+
+        destination.mkdirs()
+        children.forEach { child ->
+            copyAssetTree("$assetPath/$child", File(destination, child))
         }
     }
 

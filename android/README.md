@@ -25,6 +25,8 @@ O primeiro script baixa o pacote Android oficial do sherpa-onnx `v1.13.6`, valid
 
 O segundo baixa `kokoro-int8-multi-lang-v1_1.tar.bz2`, valida SHA-256 e instala `model.int8.onnx`, `voices.bin`, `tokens.txt`, os dois lexicons e `espeak-ng-data` em `android/local-models/kokoro/`. Esses diretórios são ignorados pelo Git e entram no APK somente durante o build local.
 
+O phonemizer sherpa-onnx não consome `espeak-ng-data` diretamente dos assets. Na primeira inicialização, o engine copia recursivamente essa árvore para o diretório privado externo do app e passa o caminho absoluto em `OfflineTtsKokoroModelConfig.dataDir`. Uma marca local evita repetir a cópia.
+
 ## Execução
 
 Abra `android/` no Android Studio. Se necessário, copie `android/local.properties.example` para `android/local.properties` e ajuste `sdk.dir`. Sincronize o Gradle e execute o módulo `app` em um dispositivo ou emulador com uma ABI preparada.
