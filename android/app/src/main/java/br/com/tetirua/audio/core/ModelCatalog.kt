@@ -27,11 +27,11 @@ object ModelCatalog {
         ModelOption(
             id = "moonshine",
             role = AudioRole.STT,
-            runtime = "Moonshine runtime / binding Android a validar",
-            platformStatus = "avaliação Android",
-            modelHint = "tiny/base v2",
+            runtime = "Moonshine Voice Android",
+            platformStatus = "implementado nesta branch com SDK oficial",
+            modelHint = "modelo oficial gerenciado pelo SDK; demonstração em inglês",
             sourceUrl = "https://github.com/moonshine-ai/moonshine",
-            artifactPolicy = "baixar modelo separadamente",
+            artifactPolicy = "cache baixado pelo SDK no primeiro uso; não versionar",
         ),
         ModelOption(
             id = "whisper-cpp-tflite",
@@ -88,4 +88,7 @@ object ModelCatalog {
             artifactPolicy = "modelo VAD fora do Git",
         ),
     )
+
+    /** Runtime/modelo efetivamente exercitado pela Activity desta branch. */
+    val active: ModelOption = all.first { it.id == "moonshine" }
 }

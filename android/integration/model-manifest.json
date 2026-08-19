@@ -1,0 +1,25 @@
+{
+  "schemaVersion": "1.0",
+  "branch": "feat/stt-moonshine",
+  "activeModel": {
+    "id": "moonshine-voice-official-android",
+    "role": "STT",
+    "runtime": "Moonshine Voice Android",
+    "version": "ai.moonshine:moonshine-voice:0.1.3",
+    "modelFamily": "Moonshine official Android model",
+    "languages": ["ar", "en", "es", "ja", "ko", "uk", "vi", "zh"],
+    "demonstrationLanguage": "en",
+    "downloadPolicy": "The SDK downloads/manages the model cache during MicTranscriber.load() on first use.",
+    "sourceUrl": "https://github.com/moonshine-ai/moonshine",
+    "quickstartUrl": "https://moonshine-voice.readthedocs.io/en/latest/quickstart/",
+    "availableModelsUrl": "https://moonshine-voice.readthedocs.io/en/latest/models/available-models/",
+    "license": "Moonshine and model terms from the upstream project; verify upstream notices before redistribution",
+    "weightsInGit": false
+  },
+  "gradleDependency": "ai.moonshine:moonshine-voice:0.1.3",
+  "codeEntryPoints": [
+    "android/app/src/main/java/br/com/tetirua/audio/stt/MoonshineSttEngine.kt",
+    "android/app/src/main/java/br/com/tetirua/audio/MainActivity.kt"
+  ],
+  "artifactPolicy": "Do not commit the SDK cache, downloaded model files or APKs. The current published model catalog does not list pt-BR; the Activity uses English and reports this limitation."
+}
