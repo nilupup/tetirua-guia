@@ -15,6 +15,8 @@
 #define LOGW(...) __android_log_print(ANDROID_LOG_WARN,     TAG, __VA_ARGS__)
 #define LOGE(...) __android_log_print(ANDROID_LOG_ERROR,    TAG, __VA_ARGS__)
 
+static volatile jint g_last_transcribe_status = 0;
+
 static inline int min(int a, int b) {
     return (a < b) ? a : b;
 }
@@ -162,7 +164,7 @@ Java_com_whispercpp_whisper_WhisperLib_00024Companion_freeContext(
     whisper_free(context);
 }
 
-JNIEXPORT jint JNICALL
+JNIEXPORT void JNICALL
 Java_com.whispercpp_whisper_WhisperLib_00024Companion_fullTranscribe(
         JNIEnv *env, jobject thiz, jlong context_ptr, jint num_threads,
         jfloatArray audio_data, jstring language_str) {
@@ -197,11 +199,19 @@ Java_com.whispercpp_whisper_WhisperLib_00024Companion_fullTranscribe(
     }
     (*env)->ReleaseFloatArrayElements(env, audio_data, audio_data_arr, JNI_ABORT);
     (*env)->ReleaseStringUTFChars(env, language_str, language);
-    return status;
+    g_last_transcribe_status = status;
 }
 
 JNIEXPORT jint JNICALL
-Java_com_whispercpp_whisper_WhisperLib_00024Companion_getTextSegmentCount(
+Java_com_whispercpp_whisper_WhisperLib_00024Companion_getLastTranscribeStatus(
+        JNIEnv *env, jobject thiz) {
+    UNUSED(env);
+    UNUSED(thiz);
+    return g_last_transcribe_status;
+}
+
+JNIEXPORT jint JNICALL
+Java_com.whispercpp_whisper_WhisperLib_00024Companion_getTextSegmentCount(
         JNIEnv *env, jobject thiz, jlong context_ptr) {
     UNUSED(env);
     UNUSED(thiz);
