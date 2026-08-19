@@ -15,4 +15,4 @@ dependencyResolutionManagement {
 }
 
 rootProject.name = "tetirua-android"
-include(":app")
+include(":app", ":whisper")
