@@ -22,11 +22,13 @@ import kotlinx.coroutines.cancel
 import kotlinx.coroutines.launch
 import java.io.File
 
-/** Aplicação desta branch: somente whisper.cpp para STT Android. */
+/** Aplicação demonstrativa desta branch: somente whisper.cpp para STT Android. */
 class MainActivity : AppCompatActivity() {
     private val activityScope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
     private val recorder = WhisperAudioRecorder()
     private var whisperEngine: WhisperCppSttEngine? = null
+    private lateinit var recordButton: Button
+    private lateinit var releaseButton: Button
     private lateinit var statusText: TextView
     private lateinit var resultText: TextView
 
@@ -48,22 +50,23 @@ class MainActivity : AppCompatActivity() {
         }, matchParent())
 
         root.addView(TextView(this).apply {
-            text = "Esta branch executa somente whisper.cpp. O modelo esperado é models/ggml-base.bin, em português multilíngue."
+            text = "Branch independente: whisper.cpp + JNI próprio. Primeiro alvo: arm64-v8a. Modelo: models/ggml-base.bin."
             textSize = 16f
         }, matchParent())
 
-        val recordButton = Button(this).apply {
+        recordButton = Button(this).apply {
             text = "Gravar 6 segundos e transcrever"
             setOnClickListener { recordAndTranscribe() }
         }
         root.addView(recordButton, matchParent())
 
-        val releaseButton = Button(this).apply {
+        releaseButton = Button(this).apply {
             text = "Liberar modelo"
             setOnClickListener {
                 whisperEngine?.release()
                 whisperEngine = null
-                statusText.text = "Estado: modelo liberado"
+                statusText.text = "Estado: modelo liberado; será carregado no próximo teste"
+                releaseButton.isEnabled = false
             }
         }
         root.addView(releaseButton, matchParent())
@@ -91,13 +94,14 @@ class MainActivity : AppCompatActivity() {
             return
         }
 
+        setBusy(true)
         activityScope.launch {
             val output = File(cacheDir, "tetirua-whisper-${System.currentTimeMillis()}.wav")
             try {
                 statusText.text = "Estado: gravando microfone por 6 segundos"
                 recorder.recordToWav(output)
 
-                statusText.text = "Estado: carregando whisper.cpp e modelo"
+                statusText.text = "Estado: carregando libwhisper.so e modelo local"
                 val engine = whisperEngine ?: WhisperCppSttEngine(this@MainActivity).also {
                     whisperEngine = it
                 }
@@ -115,11 +119,17 @@ class MainActivity : AppCompatActivity() {
                 statusText.text = "Estado: concluído em ${result.processingTimeMs ?: 0} ms"
             } catch (error: Exception) {
                 statusText.text = "Estado: erro — ${error.message ?: error.javaClass.simpleName}"
-                resultText.text = "Verifique se o modelo existe em app/src/main/assets/models/ggml-base.bin."
+                resultText.text = "Diagnóstico: confira a ABI arm64-v8a, o modelo ggml-base.bin e a permissão de microfone."
             } finally {
                 output.delete()
+                setBusy(false)
             }
         }
+    }
+
+    private fun setBusy(busy: Boolean) {
+        recordButton.isEnabled = !busy
+        releaseButton.isEnabled = !busy && whisperEngine != null
     }
 
     private fun requestAudioPermissionIfNeeded() {
@@ -129,12 +139,29 @@ class MainActivity : AppCompatActivity() {
                 arrayOf(Manifest.permission.RECORD_AUDIO),
                 REQUEST_AUDIO_PERMISSION,
             )
+        } else {
+            statusText.text = "Estado: pronto; modelo será carregado no primeiro teste"
         }
     }
 
     private fun hasAudioPermission(): Boolean =
         ContextCompat.checkSelfPermission(this, Manifest.permission.RECORD_AUDIO) ==
             PackageManager.PERMISSION_GRANTED
+
+    override fun onRequestPermissionsResult(
+        requestCode: Int,
+        permissions: Array<out String>,
+        grantResults: IntArray,
+    ) {
+        super.onRequestPermissionsResult(requestCode, permissions, grantResults)
+        if (requestCode == REQUEST_AUDIO_PERMISSION) {
+            statusText.text = if (grantResults.firstOrNull() == PackageManager.PERMISSION_GRANTED) {
+                "Estado: pronto; modelo será carregado no primeiro teste"
+            } else {
+                "Estado: permissão de microfone negada"
+            }
+        }
+    }
 
     override fun onDestroy() {
         whisperEngine?.release()

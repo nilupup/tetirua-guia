@@ -13,7 +13,9 @@ android {
         version = "0.1.0"
 
         ndk {
-            abiFilters += listOf("arm64-v8a", "armeabi-v7a", "x86_64", "x86")
+            // Primeiro alvo validado: Samsung arm64-v8a. Reative outras ABIs
+            // somente após cada uma ter sua biblioteca nativa verificada.
+            abiFilters += listOf("arm64-v8a")
         }
 
         externalNativeBuild {
