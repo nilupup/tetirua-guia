@@ -9,6 +9,12 @@ if(NOT EXISTS "${WHISPER_CPP_DIR}/CMakeLists.txt")
     message(FATAL_ERROR "whisper.cpp submodule not found at ${WHISPER_CPP_DIR}. Run git submodule update --init --recursive.")
 endif()
 
+# The pinned whisper.cpp submodule declares project version 1.9.2.
+# The Android target compiles whisper.cpp directly, so it must provide the
+# same compile definition that the upstream CMake target provides.
+set(WHISPER_VERSION "1.9.2")
+message(STATUS "Whisper.cpp version: ${WHISPER_VERSION}")
+
 set(SOURCE_FILES
     "${WHISPER_CPP_DIR}/src/whisper.cpp"
     "${CMAKE_CURRENT_LIST_DIR}/jni.c"
@@ -34,7 +40,12 @@ include_directories(
 
 add_library(whisper SHARED ${SOURCE_FILES})
 
-target_compile_definitions(whisper PRIVATE GGML_USE_CPU)
+target_compile_definitions(
+    whisper
+    PRIVATE
+    GGML_USE_CPU
+    WHISPER_VERSION="${WHISPER_VERSION}"
+)
 target_compile_options(whisper PRIVATE -O3 -fvisibility=hidden -fvisibility-inlines-hidden)
 target_link_options(whisper PRIVATE -Wl,--gc-sections -Wl,--exclude-libs,ALL)
 
