@@ -31,6 +31,11 @@ class WhisperCppSttEngine(
     val selectedModelAssetPath: String
         get() = modelAssetPath
 
+    /** Threads CPU escolhidas pelo wrapper para a inferência. */
+    val selectedThreadCount: Int
+        get() = whisperContext?.configuredThreadCount
+            ?: WhisperContext.getConfiguredThreadCount()
+
     override suspend fun transcribe(request: TranscriptionRequest): TranscriptionResult =
         withContext(Dispatchers.Default) {
             val startedAt = System.currentTimeMillis()
@@ -86,14 +91,16 @@ class WhisperCppSttEngine(
 
     companion object {
         const val ENGINE_ID = "whisper.cpp-jni-android"
+        const val TINY_QUANTIZED_MODEL_ASSET = "models/ggml-tiny-q5_1.bin"
         const val QUANTIZED_MODEL_ASSET = "models/ggml-base-q5_1.bin"
         const val DEFAULT_MODEL_ASSET = "models/ggml-base.bin"
 
         /**
-         * Prefere o modelo Q5_1 por ser menor, mas preserva o modelo base
-         * atual para que a branch continue executável durante a migração.
+         * Prefere a variante menor para reduzir a latência no CPU do celular.
+         * Os modelos base permanecem como fallbacks para comparação de precisão.
          */
         private val MODEL_CANDIDATES = listOf(
+            TINY_QUANTIZED_MODEL_ASSET,
             QUANTIZED_MODEL_ASSET,
             DEFAULT_MODEL_ASSET,
         )

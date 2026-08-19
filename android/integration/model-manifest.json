@@ -2,26 +2,32 @@
   "schemaVersion": "1.0",
   "branch": "feat/stt-whisper-cpp-tflite",
   "activeModel": {
-    "id": "whisper-cpp-ggml-base-q5_1",
+    "id": "whisper-cpp-ggml-tiny-q5_1",
     "role": "STT",
     "runtime": "whisper.cpp via JNI/NDK",
-    "version": "ggml-base-q5_1",
+    "version": "ggml-tiny-q5_1",
     "languages": ["multilingual", "pt-BR"],
     "files": [
       {
-        "name": "ggml-base-q5_1.bin",
-        "sizeBytes": 59707625,
-        "sha256": "422f1ae452ade6f30a004d7e5c6a43195e4433bc370bf23fac9cc591f01a8898",
-        "destination": "android/app/src/main/assets/models/ggml-base-q5_1.bin"
+        "name": "ggml-tiny-q5_1.bin",
+        "sizeBytes": 32152673,
+        "sha256": "818710568da3ca15689e31a743197b520007872ff9576237bda97bd1b469c3d7",
+        "destination": "android/app/src/main/assets/models/ggml-tiny-q5_1.bin"
       }
     ],
-    "sourceUrl": "https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-base-q5_1.bin?download=true",
-    "fallbackModel": {
-      "id": "whisper-cpp-ggml-base",
-      "version": "ggml-base",
-      "file": "android/app/src/main/assets/models/ggml-base.bin",
-      "selection": "Used automatically when ggml-base-q5_1.bin is absent"
-    },
+    "sourceUrl": "https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-tiny-q5_1.bin?download=true",
+    "fallbackModels": [
+      {
+        "id": "whisper-cpp-ggml-base-q5_1",
+        "version": "ggml-base-q5_1",
+        "file": "android/app/src/main/assets/models/ggml-base-q5_1.bin"
+      },
+      {
+        "id": "whisper-cpp-ggml-base",
+        "version": "ggml-base",
+        "file": "android/app/src/main/assets/models/ggml-base.bin"
+      }
+    ],
     "sourceApi": "https://huggingface.co/api/models/ggerganov/whisper.cpp/tree/main?recursive=false",
     "license": "Whisper model and whisper.cpp upstream terms; verify upstream notices before redistribution",
     "weightsInGit": false

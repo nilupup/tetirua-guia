@@ -50,7 +50,7 @@ class MainActivity : AppCompatActivity() {
         }, matchParent())
 
         root.addView(TextView(this).apply {
-            text = "Branch independente: whisper.cpp + JNI próprio. Primeiro alvo: arm64-v8a. Preferência: models/ggml-base-q5_1.bin; fallback: models/ggml-base.bin."
+            text = "Branch independente: whisper.cpp + JNI próprio. Primeiro alvo: arm64-v8a. Preferência: models/ggml-tiny-q5_1.bin; fallbacks: base-q5_1 e base."
             textSize = 16f
         }, matchParent())
 
@@ -106,7 +106,7 @@ class MainActivity : AppCompatActivity() {
                     whisperEngine = it
                 }
                 val modelName = engine.selectedModelAssetPath.substringAfterLast('/')
-                statusText.text = "Estado: modelo selecionado — $modelName"
+                statusText.text = "Estado: modelo selecionado — $modelName; threads=${engine.selectedThreadCount}"
 
                 statusText.text = "Estado: transcrevendo localmente, sem internet"
                 val result = engine.transcribe(

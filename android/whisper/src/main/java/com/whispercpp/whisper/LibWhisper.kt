@@ -15,13 +15,17 @@ class WhisperContext private constructor(private var ptr: Long) {
         Executors.newSingleThreadExecutor().asCoroutineDispatcher()
     )
 
+    /** Número de threads escolhido para a inferência CPU desta execução. */
+    val configuredThreadCount: Int
+        get() = WhisperCpuConfig.preferredThreadCount
+
     suspend fun transcribeData(
         data: FloatArray,
         language: String = "pt",
         printTimestamp: Boolean = true,
     ): String = withContext(scope.coroutineContext) {
         require(ptr != 0L)
-        val numThreads = WhisperCpuConfig.preferredThreadCount
+        val numThreads = configuredThreadCount
         Log.d(LOG_TAG, "Selecting $numThreads threads")
         WhisperLib.fullTranscribe(ptr, numThreads, data, language.substringBefore('-'))
         val textCount = WhisperLib.getTextSegmentCount(ptr)
@@ -89,6 +93,8 @@ class WhisperContext private constructor(private var ptr: Long) {
         fun getSystemInfo(): String {
             return WhisperLib.getSystemInfo()
         }
+
+        fun getConfiguredThreadCount(): Int = WhisperCpuConfig.preferredThreadCount
     }
 }
 
